@@ -6,6 +6,7 @@ on:
       - main
     tags:
       - 'v*.*.*'
+  workflow_dispatch:
 
 jobs:
   build-signed-release:
@@ -20,7 +21,7 @@ jobs:
           node-version: 20
           cache: 'npm'
 
-      - name: Setup Java JDK 17
+      - name: Setup Java JDK 17 (Runs on GitHub Cloud - No Laptop Java Needed!)
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
@@ -40,7 +41,7 @@ jobs:
           npx cap sync android
           node scripts/configure-android.mjs
 
-      - name: Decode Keystore from GitHub Secrets & Build Signed Bundle
+      - name: Prepare Keystore (Uses Secret OR Auto-Generates on GitHub Cloud)
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -50,22 +51,40 @@ jobs:
         run: |
           chmod +x gradlew
           if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "Using saved GitHub Secret Keystore..."
             echo "$KEYSTORE_BASE64" | base64 --decode > release-key.jks
-            ./gradlew bundleRelease assembleRelease \
-              -Pandroid.injected.signing.store.file=$(pwd)/release-key.jks \
-              -Pandroid.injected.signing.store.password=$KEYSTORE_PASSWORD \
-              -Pandroid.injected.signing.key.alias=$KEY_ALIAS \
-              -Pandroid.injected.signing.key.password=$KEY_PASSWORD
+            STORE_PASS="$KEYSTORE_PASSWORD"
+            ALIAS_NAME="$KEY_ALIAS"
+            KEY_PASS="$KEY_PASSWORD"
           else
-            echo "No signing secret configured yet. Building debug APK for verification."
-            ./gradlew assembleDebug
+            echo "No laptop Java needed! Generating a fresh release-key.jks directly on GitHub Cloud..."
+            STORE_PASS="Ricochet1234"
+            ALIAS_NAME="ricochetkey"
+            KEY_PASS="Ricochet1234"
+            keytool -genkeypair -v \
+              -keystore release-key.jks \
+              -alias "$ALIAS_NAME" \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -storepass "$STORE_PASS" \
+              -keypass "$KEY_PASS" \
+              -dname "CN=Ricochet Alchemy, OU=GameDev, O=Studio, L=City, S=State, C=IN"
+            base64 -w 0 release-key.jks > generated-keystore-base64.txt
           fi
 
-      - name: Upload Release Artifacts (Play Store AAB + Signed APK)
+          ./gradlew bundleRelease assembleRelease \
+            -Pandroid.injected.signing.store.file=$(pwd)/release-key.jks \
+            -Pandroid.injected.signing.store.password="$STORE_PASS" \
+            -Pandroid.injected.signing.key.alias="$ALIAS_NAME" \
+            -Pandroid.injected.signing.key.password="$KEY_PASS"
+
+      - name: Upload Signed Play Store AAB, APK & Generated Key
         uses: actions/upload-artifact@v4
         with:
-          name: playstore-release-bundle
+          name: playstore-signed-release-bundle
           path: |
             android/app/build/outputs/bundle/release/*.aab
             android/app/build/outputs/apk/release/*.apk
-            android/app/build/outputs/apk/debug/*.apk
+            android/release-key.jks
+            android/generated-keystore-base64.txt
