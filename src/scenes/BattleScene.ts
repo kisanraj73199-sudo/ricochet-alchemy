@@ -4,6 +4,7 @@ import { OrbsConfig, ElementType } from '../config/OrbsConfig';
 import { ArenaPhysics, ArenaBounds, BlockRect, ActiveOrb } from '../gameplay/ArenaPhysics';
 import { ForgeGrid } from '../gameplay/ForgeGrid';
 import { ElementalCombos } from '../gameplay/ElementalCombos';
+import { WaveSpawner } from '../gameplay/WaveSpawner';
 import { SoundSynth } from '../core/SoundSynth';
 import { SaveSystem, PlayerSaveData } from '../core/SaveSystem';
 
@@ -25,6 +26,7 @@ export class BattleScene extends Phaser.Scene {
   private cannonY = 0;
   private isAiming = false;
   private isVolleyActive = false;
+  private isGameOver = false;
   private aimAngleRad = -Math.PI / 2;
 
   private trajectoryGraphics!: Phaser.GameObjects.Graphics;
@@ -51,6 +53,9 @@ export class BattleScene extends Phaser.Scene {
   create(): void {
     this.saveData = SaveSystem.load();
     this.wave = this.saveData.highestWave || 1;
+    this.isGameOver = false;
+    this.blocks = [];
+    this.activeOrbs = [];
 
     const { width, topAdBannerHeight, hudTopY, arenaTopY, arenaBottomY, forgeGridTopY } = ThemeConfig.screen;
     const { colors } = ThemeConfig;
@@ -73,14 +78,27 @@ export class BattleScene extends Phaser.Scene {
       fontStyle: 'bold'
     }).setOrigin(0.5);
 
-    // 2. TOP HUD BAR
+    // 2. TOP HUD BAR + GRIMOIRE MENU BUTTON
     this.add.rectangle(width / 2, hudTopY + 20, width - 16, 40, colors.panelRoyalBlue)
       .setStrokeStyle(2, colors.goldBorder);
     this.scoreText = this.add.text(18, hudTopY + 12, '', {
-      fontSize: '13px',
+      fontSize: '12px',
       color: colors.textCream,
       fontStyle: 'bold'
     });
+
+    const menuBtn = this.add.rectangle(width - 54, hudTopY + 20, 78, 28, colors.buttonUpgradeOrange)
+      .setStrokeStyle(1.5, 0xffffff)
+      .setInteractive({ useHandCursor: true });
+    this.add.text(width - 54, hudTopY + 20, '📖 SKILLS', {
+      fontSize: '10px',
+      color: '#ffffff',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+    menuBtn.on('pointerdown', () => {
+      this.scene.start('MenuScene');
+    });
+
     this.updateHud();
 
     // 3. WARM SANDSTONE RICOCHET ARENA
@@ -115,8 +133,13 @@ export class BattleScene extends Phaser.Scene {
     this.trajectoryGraphics = this.add.graphics();
     this.orbsGraphics = this.add.graphics();
 
-    this.spawnCrystalWave();
+    this.spawnNewWaveBlocks();
     this.setupInputHandlers();
+  }
+
+  private getDamageMultiplier(): number {
+    const lvl = this.saveData.grimoireLevels.volatileMix || 1;
+    return 1 + (lvl - 1) * 0.15;
   }
 
   private computeSlotCenters(forgeTopY: number): void {
@@ -136,6 +159,7 @@ export class BattleScene extends Phaser.Scene {
   private renderForgeGrid(): void {
     this.forgeContainer.removeAll(true);
     const { colors } = ThemeConfig;
+    const dmgMult = this.getDamageMultiplier();
 
     const header = this.add.text(195, ThemeConfig.screen.forgeGridTopY + 14, 'DRAG IDENTICAL RUNES TO MERGE (TOP ROW FIRES FIRST)', {
       fontSize: '10px',
@@ -153,6 +177,7 @@ export class BattleScene extends Phaser.Scene {
       const runeKey = this.saveData.gridRunes[idx];
       if (runeKey && OrbsConfig[runeKey]) {
         const cfg = OrbsConfig[runeKey];
+        const boostedDmg = Math.round(cfg.baseDamage * dmgMult);
         const orbCircle = this.add.circle(pos.x, pos.y - 3, 18 + cfg.tier * 1.5, cfg.color)
           .setStrokeStyle(2, 0xffffff);
         const tierLabel = this.add.text(pos.x, pos.y - 3, cfg.romanTier, {
@@ -162,7 +187,7 @@ export class BattleScene extends Phaser.Scene {
           stroke: '#000000',
           strokeThickness: 3
         }).setOrigin(0.5);
-        const dmgLabel = this.add.text(pos.x, pos.y + 19, `${cfg.baseDamage} DMG`, {
+        const dmgLabel = this.add.text(pos.x, pos.y + 19, `${boostedDmg} DMG`, {
           fontSize: '9px',
           color: '#fff7e6',
           fontStyle: 'bold'
@@ -174,7 +199,6 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private createForgeActionButtons(screenWidth: number, btnY: number): void {
-    // Button 1: Spend 50 Coins to Forge a Tier-1 Rune
     const buyBtn = this.add.rectangle(108, btnY, 168, 36, ThemeConfig.colors.buttonPlayGreen)
       .setStrokeStyle(2, 0xffffff)
       .setInteractive({ useHandCursor: true });
@@ -185,6 +209,7 @@ export class BattleScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     buyBtn.on('pointerdown', () => {
+      if (this.isGameOver) return;
       if (this.saveData.coins < 50) {
         this.showPopupBanner(108, btnY - 26, 'NEED 50 COINS!', '#ff5252');
         return;
@@ -201,7 +226,6 @@ export class BattleScene extends Phaser.Scene {
       this.renderForgeGrid();
     });
 
-    // Button 2: Opt-in Rewarded Ad -> Free Tier-2 Rune Crate!
     const adBtn = this.add.rectangle(screenWidth - 108, btnY, 168, 36, ThemeConfig.colors.buttonUpgradeOrange)
       .setStrokeStyle(2, ThemeConfig.colors.goldHighlight)
       .setInteractive({ useHandCursor: true });
@@ -212,30 +236,67 @@ export class BattleScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     adBtn.on('pointerdown', () => {
+      if (this.isGameOver) return;
       const spawnedIdx = ForgeGrid.spawnRuneInEmptySlot(this.saveData.gridRunes, 2);
       if (spawnedIdx === -1) {
         this.showPopupBanner(screenWidth - 108, btnY - 26, 'GRID FULL! MERGE FIRST!', '#ffab40');
         return;
       }
       SaveSystem.save(this.saveData);
-      SoundSynth.playBounceChime(8);
+      SoundSynth.playUpgradeFanfare();
       this.showPopupBanner(screenWidth - 108, btnY - 28, 'REWARDED AD: TIER-II RUNE!', '#ffd740');
       this.renderForgeGrid();
     });
   }
 
+  private spawnNewWaveBlocks(): void {
+    const rawBlocks = WaveSpawner.spawnWaveBlocks(this.wave, this.arenaBounds.top, ThemeConfig.screen.width);
+
+    if (WaveSpawner.isBossWave(this.wave)) {
+      this.cameras.main.shake(300, 0.012);
+      this.showPopupBanner(ThemeConfig.screen.width / 2, this.arenaBounds.top + 30, '⚠️ WARNING: GIANT CRYSTAL GOLEM!', '#ff5252');
+    }
+
+    for (const item of rawBlocks) {
+      const box = this.add.rectangle(item.data.x, item.data.y, item.data.width, item.data.height, item.data.color)
+        .setStrokeStyle(2, 0xffffff);
+      const hpText = this.add.text(item.data.x, item.data.y, `${item.data.hp}`, {
+        fontSize: '13px',
+        color: '#ffffff',
+        fontStyle: 'bold'
+      }).setOrigin(0.5);
+
+      this.blocks.push({ data: item.data, box, hpText, lastElement: null });
+    }
+  }
+
+  private spawnShatterParticles(x: number, y: number, color: number): void {
+    for (let i = 0; i < 8; i++) {
+      const angle = (Math.PI * 2 * i) / 8 + Math.random() * 0.4;
+      const dist = 22 + Math.random() * 24;
+      const shard = this.add.rectangle(x, y, 7, 7, color).setRotation(angle);
+      this.tweens.add({
+        targets: shard,
+        x: x + Math.cos(angle) * dist,
+        y: y + Math.sin(angle) * dist,
+        alpha: 0,
+        scale: 0.2,
+        duration: 360,
+        onComplete: () => shard.destroy()
+      });
+    }
+  }
+
   private setupInputHandlers(): void {
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      if (this.isVolleyActive) return;
+      if (this.isVolleyActive || this.isGameOver) return;
 
-      // Check if user touched inside Top Arena (Aiming)
       if (pointer.y >= this.arenaBounds.top && pointer.y <= this.arenaBounds.bottom) {
         this.isAiming = true;
         this.updateAimAngle(pointer);
         return;
       }
 
-      // Check if user touched a Rune Slot in Bottom 4x3 Grid (Dragging to Merge)
       const hitIdx = this.findNearestSlotIndex(pointer.x, pointer.y, 34);
       if (hitIdx !== -1 && this.saveData.gridRunes[hitIdx]) {
         this.dragSourceIdx = hitIdx;
@@ -271,11 +332,10 @@ export class BattleScene extends Phaser.Scene {
           const res = ForgeGrid.moveOrMergeSlot(this.saveData.gridRunes, this.dragSourceIdx, targetIdx);
           if (res.action === 'MERGED' && res.upgradedOrbId) {
             const newOrb = OrbsConfig[res.upgradedOrbId];
-            SoundSynth.playBounceChime(10);
+            SoundSynth.playUpgradeFanfare();
             const pt = this.slotCenters[targetIdx];
+            this.spawnShatterParticles(pt.x, pt.y, newOrb.color);
             this.showPopupBanner(pt.x, pt.y - 24, `MERGED: ${newOrb.name}!`, '#69f0ae');
-          } else if (res.action === 'SWAPPED') {
-            SoundSynth.playBounceChime(2);
           }
           SaveSystem.save(this.saveData);
           this.renderForgeGrid();
@@ -291,44 +351,6 @@ export class BattleScene extends Phaser.Scene {
       if (dist <= maxDist) return i;
     }
     return -1;
-  }
-
-  private spawnCrystalWave(): void {
-    const cols = 5;
-    const blockW = 58;
-    const blockH = 42;
-    const startX = 56;
-    const gapX = 68;
-    const palette = [0x29b6f6, 0xab47bc, 0xff7043, 0x26a69a];
-
-    for (let r = 0; r < 2; r++) {
-      for (let c = 0; c < cols; c++) {
-        const bx = startX + c * gapX;
-        const by = this.arenaBounds.top + 55 + r * 54;
-        const hp = (3 + this.wave * 2 - r) * 14;
-        const color = palette[(r + c + this.wave) % palette.length];
-
-        const rectData: BlockRect = {
-          id: `crystal_${this.wave}_${r}_${c}_${Date.now()}`,
-          x: bx,
-          y: by,
-          width: blockW,
-          height: blockH,
-          hp,
-          maxHp: hp,
-          color
-        };
-
-        const box = this.add.rectangle(bx, by, blockW, blockH, color).setStrokeStyle(2, 0xffffff);
-        const hpText = this.add.text(bx, by, `${hp}`, {
-          fontSize: '14px',
-          color: '#ffffff',
-          fontStyle: 'bold'
-        }).setOrigin(0.5);
-
-        this.blocks.push({ data: rectData, box, hpText, lastElement: null });
-      }
-    }
   }
 
   private updateAimAngle(pointer: Phaser.Input.Pointer): void {
@@ -354,6 +376,7 @@ export class BattleScene extends Phaser.Scene {
     this.statusHintText.setVisible(false);
 
     const queue = ForgeGrid.extractFiringQueue(this.saveData.gridRunes);
+    const dmgMult = this.getDamageMultiplier();
     const speed = 470;
 
     queue.forEach((orbCfg, index) => {
@@ -364,7 +387,7 @@ export class BattleScene extends Phaser.Scene {
           vx: Math.cos(this.aimAngleRad) * speed,
           vy: Math.sin(this.aimAngleRad) * speed,
           radius: 8 + orbCfg.tier,
-          damage: orbCfg.baseDamage,
+          damage: Math.round(orbCfg.baseDamage * dmgMult),
           color: orbCfg.color,
           element: orbCfg.element,
           active: true
@@ -375,9 +398,24 @@ export class BattleScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
+    if (this.isGameOver) return;
+
+    const descentSpeed = 1.2 + this.wave * 0.12;
+    const dt = Math.min(delta / 1000, 0.025);
+
+    for (const block of this.blocks) {
+      block.data.y += descentSpeed * dt;
+      block.box.y = block.data.y;
+      block.hpText.y = block.data.y;
+
+      if (block.data.y + block.data.height / 2 >= this.cannonY - 20) {
+        this.triggerGameOver();
+        return;
+      }
+    }
+
     if (!this.isVolleyActive) return;
 
-    const dt = Math.min(delta / 1000, 0.025);
     this.orbsGraphics.clear();
     const activeBlockData = this.blocks.map((b) => b.data);
 
@@ -411,10 +449,14 @@ export class BattleScene extends Phaser.Scene {
     if (!target || target.data.hp <= 0) return;
 
     let finalDamage = baseDmg;
+    const coreLvl = this.saveData.grimoireLevels.empoweredCore || 1;
+    const comboBoost = 1 + (coreLvl - 1) * 0.2;
+
     if (target.lastElement && target.lastElement !== hitElement) {
       const reaction = ElementalCombos.getComboMultiplier(target.lastElement, hitElement);
       if (reaction.multiplier > 1.0) {
-        finalDamage = Math.round(baseDmg * reaction.multiplier);
+        finalDamage = Math.round(baseDmg * reaction.multiplier * comboBoost);
+        this.cameras.main.shake(90, 0.004);
         this.showPopupBanner(hitX, hitY - 22, reaction.label, reaction.color);
       }
     }
@@ -442,10 +484,15 @@ export class BattleScene extends Phaser.Scene {
     });
 
     if (target.data.hp <= 0) {
+      SoundSynth.playShatterSound();
+      this.spawnShatterParticles(target.data.x, target.data.y, target.data.color);
       target.box.destroy();
       target.hpText.destroy();
       this.blocks = this.blocks.filter((b) => b.data.id !== blockId);
-      this.saveData.coins += 15;
+
+      const greedLvl = this.saveData.grimoireLevels.alchemistGreed || 1;
+      const coinGain = Math.round(20 * (1 + (greedLvl - 1) * 0.25));
+      this.saveData.coins += coinGain;
       SaveSystem.save(this.saveData);
       this.updateHud();
     }
@@ -473,17 +520,71 @@ export class BattleScene extends Phaser.Scene {
     if (this.blocks.length === 0) {
       this.wave++;
       this.saveData.highestWave = Math.max(this.saveData.highestWave, this.wave);
-      this.saveData.coins += 40;
+      this.saveData.coins += 50;
       SaveSystem.save(this.saveData);
       this.updateHud();
-      this.spawnCrystalWave();
+      this.spawnNewWaveBlocks();
     }
     this.statusHintText.setText('MERGE RUNES BELOW OR DRAG ARENA TO FIRE!');
     this.statusHintText.setVisible(true);
   }
 
+  private triggerGameOver(): void {
+    if (this.isGameOver) return;
+    this.isGameOver = true;
+
+    const { width, height } = ThemeConfig.screen;
+    this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.82);
+
+    this.add.text(width / 2, height / 2 - 90, 'BREACHED!', {
+      fontSize: '32px',
+      color: '#ff5252',
+      fontStyle: 'bold',
+      stroke: '#000',
+      strokeThickness: 6
+    }).setOrigin(0.5);
+
+    this.add.text(width / 2, height / 2 - 35, `FINAL WAVE: ${this.wave}   SCORE: ${this.score}`, {
+      fontSize: '14px',
+      color: '#fff7e6',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+
+    const reviveBtn = this.add.rectangle(width / 2, height / 2 + 35, 240, 46, ThemeConfig.colors.buttonPlayGreen)
+      .setStrokeStyle(3, 0xffffff)
+      .setInteractive({ useHandCursor: true });
+    this.add.text(width / 2, height / 2 + 35, '▶ WATCH AD: REVIVE & CLEAR ROW', {
+      fontSize: '12px',
+      color: '#ffffff',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+
+    reviveBtn.on('pointerdown', () => {
+      for (const b of this.blocks) {
+        b.box.destroy();
+        b.hpText.destroy();
+      }
+      this.blocks = [];
+      this.isGameOver = false;
+      this.scene.restart();
+    });
+
+    const menuBtn = this.add.rectangle(width / 2, height / 2 + 98, 240, 40, 0x5c4033)
+      .setStrokeStyle(2, ThemeConfig.colors.goldBorder)
+      .setInteractive({ useHandCursor: true });
+    this.add.text(width / 2, height / 2 + 98, 'RETURN TO GRIMOIRE MENU', {
+      fontSize: '12px',
+      color: '#ffd97d',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+
+    menuBtn.on('pointerdown', () => {
+      this.scene.start('MenuScene');
+    });
+  }
+
   private updateHud(): void {
     if (!this.scoreText) return;
-    this.scoreText.setText(`COINS: ${this.saveData.coins}      WAVE: ${this.wave}      SCORE: ${this.score}`);
+    this.scoreText.setText(`COINS: ${this.saveData.coins}    WAVE: ${this.wave}    SCORE: ${this.score}`);
   }
 }

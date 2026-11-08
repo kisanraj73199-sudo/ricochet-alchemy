@@ -7,8 +7,7 @@ export class BootScene extends Phaser.Scene {
   }
 
   create(): void {
-    // Load & automatically migrate offline save data on startup
     SaveSystem.load();
-    this.scene.start('BattleScene');
+    this.scene.start('MenuScene');
   }
 }
