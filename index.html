@@ -1,9 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Ricochet Alchemy: Forge & Fire</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,700;1,700&family=Orbitron:wght@700;900&display=swap"
+    rel="stylesheet">
   <style>
     * {
       box-sizing: border-box;
@@ -12,13 +19,16 @@
       user-select: none;
       -webkit-user-select: none;
     }
-    html, body {
+
+    html,
+    body {
       width: 100%;
       height: 100%;
-      background-color: #2b231d; /* Warm Royal Stone Dark Fallback */
+      background: radial-gradient(circle at center, #1b1429 0%, #090610 100%);
       overflow: hidden;
-      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      font-family: 'Chakra Petch', 'Orbitron', sans-serif;
     }
+
     #game-container {
       width: 100%;
       height: 100%;
@@ -28,8 +38,10 @@
     }
   </style>
 </head>
+
 <body>
   <div id="game-container"></div>
   <script type="module" src="/src/main.ts"></script>
 </body>
+
 </html>

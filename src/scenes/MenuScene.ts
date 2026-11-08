@@ -1,53 +1,56 @@
 /**
- * Phase 8: Screen 1 - Warm Fantasy Alchemist Grimoire & Neutral Age Gate Compliance
+ * Futuristic Crystal-Clean Command Dashboard & Grimoire Skill Tree
  */
 import Phaser from 'phaser';
 import { ThemeConfig } from '../config/ThemeConfig';
 import { SaveSystem, PlayerSaveData } from '../core/SaveSystem';
 import { SoundSynth } from '../core/SoundSynth';
 import { AdService } from '../core/AdService';
+import { ArtRenderer } from '../ui/ArtRenderer';
+import { WaveSpawner } from '../gameplay/WaveSpawner';
 
 interface SkillNodeConfig {
   key: string;
   title: string;
   desc: string;
+  texKey: string;
   x: number;
   y: number;
-  color: number;
   baseCost: number;
 }
 
 export class MenuScene extends Phaser.Scene {
   private saveData!: PlayerSaveData;
   private coinsText!: Phaser.GameObjects.Text;
+  private stageInfoText!: Phaser.GameObjects.Text;
   private treeContainer!: Phaser.GameObjects.Container;
 
   private readonly skills: SkillNodeConfig[] = [
     {
       key: 'volatileMix',
-      title: 'Volatile Mix',
-      desc: '+15% All Orb Damage',
+      title: 'VOLATILE MIX',
+      desc: '+15% All Rune Damage',
+      texKey: 'orb_FIRE_3',
       x: 195,
-      y: 265,
-      color: 0xff5722,
+      y: 315,
       baseCost: 80
     },
     {
       key: 'empoweredCore',
-      title: 'Empowered Core',
-      desc: '+20% Elemental Combo Bonus',
+      title: 'ARCANE CORE',
+      desc: '+20% Combo Multiplier',
+      texKey: 'orb_LIGHTNING_3',
       x: 105,
-      y: 425,
-      color: 0xab47bc,
+      y: 495,
       baseCost: 100
     },
     {
       key: 'alchemistGreed',
-      title: 'Alchemist Greed',
-      desc: '+25% Bonus Coins Dropped',
+      title: 'CRYSTAL GREED',
+      desc: '+25% Gold Drops',
+      texKey: 'orb_NATURE_3',
       x: 285,
-      y: 425,
-      color: 0x4caf50,
+      y: 495,
       baseCost: 90
     }
   ];
@@ -57,82 +60,81 @@ export class MenuScene extends Phaser.Scene {
   }
 
   create(): void {
+    ArtRenderer.generateAllGameTextures(this);
     this.saveData = SaveSystem.load();
     const { width, height, topAdBannerHeight } = ThemeConfig.screen;
     const { colors } = ThemeConfig;
 
     // 1. TOP SAFE BANNER AD DOCK
-    this.add.rectangle(width / 2, topAdBannerHeight / 2, width, topAdBannerHeight, 0x1e1814)
-      .setStrokeStyle(2, colors.goldBorder);
+    this.add.rectangle(width / 2, topAdBannerHeight / 2, width, topAdBannerHeight, 0x0d0917)
+      .setStrokeStyle(1.5, 0x3f2e66);
     this.add.text(width / 2, topAdBannerHeight / 2, 'ADMOB TOP BANNER AD (SAFE ZONE)', {
-      fontSize: '12px',
-      color: '#ffd97d',
+      fontFamily: "'Orbitron', sans-serif",
+      fontSize: '10px',
+      color: '#ffd54f',
       fontStyle: 'bold'
     }).setOrigin(0.5);
 
-    // 2. TITLE HEADER & CURRENCY BAR
-    this.add.rectangle(width / 2, 108, width - 20, 68, colors.panelRoyalBlue)
-      .setStrokeStyle(3, colors.goldBorder);
+    // 2. FUTURISTIC COMMAND DASHBOARD HEADER
+    const g = this.add.graphics();
+    g.fillGradientStyle(0x21153b, 0x21153b, 0x100a20, 0x100a20, 1);
+    g.fillRoundedRect(12, 70, width - 24, 118, 12);
+    g.lineStyle(3, colors.goldBorder, 1);
+    g.strokeRoundedRect(12, 70, width - 24, 118, 12);
 
-    this.add.text(width / 2, 94, 'RICOCHET ALCHEMY: FORGE & FIRE', {
-      fontSize: '16px',
-      color: '#ffdf73',
+    this.add.text(width / 2, 92, 'RICOCHET ALCHEMY', {
+      fontFamily: "'Orbitron', sans-serif",
+      fontSize: '18px',
+      color: '#00e5ff',
       fontStyle: 'bold',
-      stroke: '#1e1814',
+      stroke: '#000000',
       strokeThickness: 4
     }).setOrigin(0.5);
 
-    this.coinsText = this.add.text(width / 2, 120, '', {
-      fontSize: '13px',
-      color: colors.textCream,
+    this.add.image(width / 2 - 62, 118, 'icon_coin');
+    this.coinsText = this.add.text(width / 2 - 46, 118, '', {
+      fontFamily: "'Orbitron', sans-serif",
+      fontSize: '14px',
+      color: '#ffd740',
+      fontStyle: 'bold'
+    }).setOrigin(0, 0.5);
+
+    // Infinite Stage Progression Roadmap inside Dashboard
+    this.stageInfoText = this.add.text(width / 2, 145, '', {
+      fontFamily: "'Orbitron', sans-serif",
+      fontSize: '10.5px',
+      color: '#fff7e6',
       fontStyle: 'bold'
     }).setOrigin(0.5);
+
+    this.drawCampaignStageNodes(width / 2, 170);
     this.updateCurrencyHeader();
 
-    // 3. WARM PARCHMENT GRIMOIRE SKILL TREE PANEL
-    this.add.rectangle(width / 2, 420, width - 24, 510, colors.panelParchment)
-      .setStrokeStyle(4, colors.goldBorder);
+    // 3. FUTURISTIC CRYSTAL GRIMOIRE PANEL
+    g.fillGradientStyle(0x160f29, 0x160f29, 0x2a1b4e, 0x2a1b4e, 1);
+    g.fillRoundedRect(12, 200, width - 24, 465, 14);
+    g.lineStyle(3.5, 0x00e5ff, 0.8);
+    g.strokeRoundedRect(12, 200, width - 24, 465, 14);
 
-    this.add.rectangle(width / 2, 185, 220, 34, colors.panelRoyalBlue)
-      .setStrokeStyle(2, colors.goldBorder);
-    this.add.text(width / 2, 185, 'ALCHEMIST GRIMOIRE', {
-      fontSize: '14px',
-      color: '#ffffff',
+    this.add.rectangle(width / 2, 222, 240, 32, 0x0d081a)
+      .setStrokeStyle(2, colors.goldHighlight);
+    this.add.text(width / 2, 222, '❖ ALCHEMIST TECH TREE ❖', {
+      fontFamily: "'Orbitron', sans-serif",
+      fontSize: '12px',
+      color: '#ffdf73',
       fontStyle: 'bold'
     }).setOrigin(0.5);
 
     this.treeContainer = this.add.container(0, 0);
     this.renderSkillTree();
 
-    // 4. BOTTOM ACTION BUTTONS
-    const playBtn = this.add.rectangle(110, height - 70, 175, 54, colors.buttonPlayGreen)
-      .setStrokeStyle(3, 0xffffff)
-      .setInteractive({ useHandCursor: true });
-    this.add.text(110, height - 70, '▶ PLAY BATTLE', {
-      fontSize: '16px',
-      color: '#ffffff',
-      fontStyle: 'bold',
-      stroke: '#1b5e20',
-      strokeThickness: 3
-    }).setOrigin(0.5);
-
-    playBtn.on('pointerdown', () => {
+    // 4. BOTTOM 3D GLOSSY TACTILE GAME BUTTONS
+    ArtRenderer.createTactileButton(this, 106, height - 66, 'btn_GREEN_lg', '▶ LAUNCH STAGE', '13px', () => {
       SoundSynth.playUpgradeFanfare();
       this.scene.start('BattleScene');
     });
 
-    const freeGoldBtn = this.add.rectangle(width - 110, height - 70, 175, 54, colors.buttonUpgradeOrange)
-      .setStrokeStyle(3, colors.goldHighlight)
-      .setInteractive({ useHandCursor: true });
-    this.add.text(width - 110, height - 70, '🎁 AD: +150 COINS', {
-      fontSize: '14px',
-      color: '#ffffff',
-      fontStyle: 'bold',
-      stroke: '#332211',
-      strokeThickness: 3
-    }).setOrigin(0.5);
-
-    freeGoldBtn.on('pointerdown', () => {
+    ArtRenderer.createTactileButton(this, width - 106, height - 66, 'btn_ORANGE_lg', '▶ AD: +150 GOLD', '13px', () => {
       AdService.getInstance().showRewardedAd(() => {
         this.saveData.coins += 150;
         SaveSystem.save(this.saveData);
@@ -142,7 +144,6 @@ export class MenuScene extends Phaser.Scene {
       });
     });
 
-    // 5. GOOGLE PLAY FAMILIES NEUTRAL AGE GATE (First Launch Only)
     if (this.saveData.userAgeDeclared === null) {
       this.showNeutralAgeGateModal();
     } else {
@@ -151,18 +152,122 @@ export class MenuScene extends Phaser.Scene {
     }
   }
 
+  private drawCampaignStageNodes(centerX: number, y: number): void {
+    const wave = this.saveData.highestWave || 1;
+    const cycleStart = Math.floor((wave - 1) / 5) * 5 + 1;
+    const g = this.add.graphics();
+    g.lineStyle(3, 0x00e5ff, 0.5);
+    g.lineBetween(centerX - 110, y, centerX + 110, y);
+
+    for (let i = 0; i < 5; i++) {
+      const stageNum = cycleStart + i;
+      const nx = centerX - 110 + i * 55;
+      const isReached = stageNum <= wave;
+      const isCurrent = stageNum === wave;
+
+      this.add.circle(nx, y, isCurrent ? 11 : 8, isReached ? 0x00e676 : 0x261e38)
+        .setStrokeStyle(2, isCurrent ? 0xffea00 : 0x00e5ff);
+      this.add.text(nx, y, `${stageNum}`, {
+        fontFamily: "'Orbitron', sans-serif",
+        fontSize: '9px',
+        color: '#ffffff',
+        fontStyle: 'bold'
+      }).setOrigin(0.5);
+    }
+  }
+
+  private renderSkillTree(): void {
+    this.treeContainer.removeAll(true);
+
+    // Glowing Cyan Energy Conduit Lines between nodes
+    const lines = this.add.graphics();
+    lines.lineStyle(4, 0x00e5ff, 0.55);
+    lines.lineBetween(195, 315, 105, 495);
+    lines.lineBetween(195, 315, 285, 495);
+    lines.lineBetween(105, 495, 285, 495);
+    this.treeContainer.add(lines);
+
+    for (const skill of this.skills) {
+      const currentLvl = this.saveData.grimoireLevels[skill.key] || 1;
+      const cost = skill.baseCost * currentLvl;
+
+      // Bevelled Dark Crystal Card
+      const card = this.add.rectangle(skill.x, skill.y, 156, 144, 0x0f0a1c)
+        .setStrokeStyle(2.5, 0xffd54f);
+
+      const orbIcon = this.add.image(skill.x, skill.y - 34, skill.texKey).setScale(0.92);
+
+      const lvlBadge = this.add.text(skill.x + 26, skill.y - 52, `LV.${currentLvl}`, {
+        fontFamily: "'Orbitron', sans-serif",
+        fontSize: '10px',
+        color: '#00e676',
+        fontStyle: 'bold',
+        stroke: '#000000',
+        strokeThickness: 3
+      }).setOrigin(0.5);
+
+      const titleTxt = this.add.text(skill.x, skill.y + 4, skill.title, {
+        fontFamily: "'Orbitron', sans-serif",
+        fontSize: '11px',
+        color: '#ffdf73',
+        fontStyle: 'bold'
+      }).setOrigin(0.5);
+
+      const descTxt = this.add.text(skill.x, skill.y + 21, skill.desc, {
+        fontFamily: "'Chakra Petch', sans-serif",
+        fontSize: '10px',
+        color: '#b2ebf2'
+      }).setOrigin(0.5);
+
+      const canAfford = this.saveData.coins >= cost;
+      const btnTex = canAfford ? 'btn_BLUE_sm' : 'btn_GRAY_sm';
+
+      const upgBtn = ArtRenderer.createTactileButton(
+        this,
+        skill.x,
+        skill.y + 49,
+        btnTex,
+        `UPGRADE (${cost}G)`,
+        '10px',
+        () => {
+          if (this.saveData.coins < cost) return;
+          this.saveData.coins -= cost;
+          this.saveData.grimoireLevels[skill.key] = currentLvl + 1;
+          SaveSystem.save(this.saveData);
+          SoundSynth.playUpgradeFanfare();
+          this.updateCurrencyHeader();
+          this.renderSkillTree();
+        }
+      );
+
+      this.treeContainer.add([card, orbIcon, lvlBadge, titleTxt, descTxt, upgBtn]);
+    }
+
+    // Properly wrapped footer note inside panel bounds
+    const infoText = this.add.text(
+      ThemeConfig.screen.width / 2,
+      625,
+      'PERMANENTLY AMPLIFIES RUNE POWER ACROSS INFINITE STAGES',
+      {
+        fontFamily: "'Orbitron', sans-serif",
+        fontSize: '9.5px',
+        color: '#ffd54f',
+        fontStyle: 'bold'
+      }
+    ).setOrigin(0.5);
+    this.treeContainer.add(infoText);
+  }
+
   private showNeutralAgeGateModal(): void {
     const { width, height } = ThemeConfig.screen;
-    const { colors } = ThemeConfig;
-
     const modalGroup = this.add.container(0, 0);
-    const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.82)
-      .setInteractive();
-    const box = this.add.rectangle(width / 2, height / 2, width - 40, 250, colors.bgWarmStone)
-      .setStrokeStyle(4, colors.goldBorder);
+    const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.85).setInteractive();
+    const box = this.add.rectangle(width / 2, height / 2, width - 36, 250, 0x160f29)
+      .setStrokeStyle(3, 0x00e5ff);
 
     const title = this.add.text(width / 2, height / 2 - 80, 'WELCOME ALCHEMIST!', {
-      fontSize: '18px',
+      fontFamily: "'Orbitron', sans-serif",
+      fontSize: '17px',
       color: '#ffdf73',
       fontStyle: 'bold'
     }).setOrigin(0.5);
@@ -170,33 +275,25 @@ export class MenuScene extends Phaser.Scene {
     const subtitle = this.add.text(
       width / 2,
       height / 2 - 42,
-      'Please select your age group so we can\nconfigure family-safe ad settings:',
+      'Select your age bracket to configure\nfamily-safe advertising settings:',
       {
+        fontFamily: "'Chakra Petch', sans-serif",
         fontSize: '12px',
-        color: '#fff7e6',
+        color: '#ffffff',
         align: 'center'
       }
     ).setOrigin(0.5);
 
-    const brackets = [
-      { label: 'Ages 10 – 12', ageValue: 11, x: width / 2 - 82, y: height / 2 + 25 },
-      { label: 'Ages 13 – 17', ageValue: 15, x: width / 2 + 82, y: height / 2 + 25 },
-      { label: 'Ages 18+', ageValue: 20, x: width / 2, y: height / 2 + 82 }
-    ];
-
     modalGroup.add([overlay, box, title, subtitle]);
 
-    brackets.forEach((b) => {
-      const btn = this.add.rectangle(b.x, b.y, 148, 42, colors.panelRoyalBlue)
-        .setStrokeStyle(2, colors.goldHighlight)
-        .setInteractive({ useHandCursor: true });
-      const txt = this.add.text(b.x, b.y, b.label, {
-        fontSize: '13px',
-        color: '#ffffff',
-        fontStyle: 'bold'
-      }).setOrigin(0.5);
+    const brackets = [
+      { label: 'AGES 10-12', ageValue: 11, x: width / 2 - 80, y: height / 2 + 22 },
+      { label: 'AGES 13-17', ageValue: 15, x: width / 2 + 80, y: height / 2 + 22 },
+      { label: 'AGES 18+', ageValue: 20, x: width / 2, y: height / 2 + 76 }
+    ];
 
-      btn.on('pointerdown', () => {
+    brackets.forEach((b) => {
+      const btn = ArtRenderer.createTactileButton(this, b.x, b.y, 'btn_BLUE_sm', b.label, '11px', () => {
         this.saveData.userAgeDeclared = b.ageValue;
         SaveSystem.save(this.saveData);
         AdService.getInstance().configureAgeCompliance(b.ageValue);
@@ -204,92 +301,14 @@ export class MenuScene extends Phaser.Scene {
         SoundSynth.playUpgradeFanfare();
         modalGroup.destroy();
       });
-
-      modalGroup.add([btn, txt]);
+      modalGroup.add(btn);
     });
   }
 
-  private renderSkillTree(): void {
-    this.treeContainer.removeAll(true);
-    const { colors } = ThemeConfig;
-
-    const lines = this.add.graphics();
-    lines.lineStyle(5, 0x8d6e63, 1);
-    lines.lineBetween(195, 265, 105, 425);
-    lines.lineBetween(195, 265, 285, 425);
-    lines.lineBetween(105, 425, 285, 425);
-    this.treeContainer.add(lines);
-
-    for (const skill of this.skills) {
-      const currentLvl = this.saveData.grimoireLevels[skill.key] || 1;
-      const cost = skill.baseCost * currentLvl;
-
-      const card = this.add.rectangle(skill.x, skill.y, 152, 128, 0x3b2f26)
-        .setStrokeStyle(3, colors.goldBorder);
-
-      const orbIcon = this.add.circle(skill.x, skill.y - 30, 22, skill.color)
-        .setStrokeStyle(3, colors.goldHighlight);
-
-      const lvlBadge = this.add.text(skill.x, skill.y - 30, `Lv.${currentLvl}`, {
-        fontSize: '12px',
-        color: '#ffffff',
-        fontStyle: 'bold',
-        stroke: '#000000',
-        strokeThickness: 3
-      }).setOrigin(0.5);
-
-      const titleTxt = this.add.text(skill.x, skill.y + 4, skill.title, {
-        fontSize: '12px',
-        color: '#ffdf73',
-        fontStyle: 'bold'
-      }).setOrigin(0.5);
-
-      const descTxt = this.add.text(skill.x, skill.y + 21, skill.desc, {
-        fontSize: '9px',
-        color: '#fff7e6'
-      }).setOrigin(0.5);
-
-      const canAfford = this.saveData.coins >= cost;
-      const upgBtn = this.add.rectangle(skill.x, skill.y + 45, 126, 26, canAfford ? colors.buttonPlayGreen : 0x616161)
-        .setStrokeStyle(1.5, 0xffffff)
-        .setInteractive({ useHandCursor: true });
-
-      const btnTxt = this.add.text(skill.x, skill.y + 45, `UPGRADE (${cost}G)`, {
-        fontSize: '10px',
-        color: '#ffffff',
-        fontStyle: 'bold'
-      }).setOrigin(0.5);
-
-      upgBtn.on('pointerdown', () => {
-        if (this.saveData.coins < cost) {
-          SoundSynth.playBounceChime(1);
-          return;
-        }
-        this.saveData.coins -= cost;
-        this.saveData.grimoireLevels[skill.key] = currentLvl + 1;
-        SaveSystem.save(this.saveData);
-        SoundSynth.playUpgradeFanfare();
-        this.updateCurrencyHeader();
-        this.renderSkillTree();
-      });
-
-      this.treeContainer.add([card, orbIcon, lvlBadge, titleTxt, descTxt, upgBtn, btnTxt]);
-    }
-
-    const infoText = this.add.text(
-      ThemeConfig.screen.width / 2,
-      585,
-      'Upgrades permanently boost your Elemental Runes in all waves!',
-      {
-        fontSize: '11px',
-        color: colors.textDarkBrown,
-        fontStyle: 'bold'
-      }
-    ).setOrigin(0.5);
-    this.treeContainer.add(infoText);
-  }
-
   private updateCurrencyHeader(): void {
-    this.coinsText.setText(`🪙 COINS: ${this.saveData.coins}      🏆 BEST WAVE: ${this.saveData.highestWave}`);
+    const wave = this.saveData.highestWave || 1;
+    const meta = WaveSpawner.getWaveMetadata(wave);
+    this.coinsText.setText(`${this.saveData.coins} GOLD`);
+    this.stageInfoText.setText(`STAGE ${wave}: ${meta.biomeName} (${meta.difficultyLabel})`);
   }
 }
