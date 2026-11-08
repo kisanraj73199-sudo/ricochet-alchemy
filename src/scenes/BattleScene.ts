@@ -7,6 +7,7 @@ import { ElementalCombos } from '../gameplay/ElementalCombos';
 import { WaveSpawner } from '../gameplay/WaveSpawner';
 import { SoundSynth } from '../core/SoundSynth';
 import { SaveSystem, PlayerSaveData } from '../core/SaveSystem';
+import { AdService } from '../core/AdService';
 
 interface VisualBlock {
   data: BlockRect;
@@ -54,6 +55,7 @@ export class BattleScene extends Phaser.Scene {
     this.saveData = SaveSystem.load();
     this.wave = this.saveData.highestWave || 1;
     this.isGameOver = false;
+    this.isVolleyActive = false;
     this.blocks = [];
     this.activeOrbs = [];
 
@@ -78,7 +80,7 @@ export class BattleScene extends Phaser.Scene {
       fontStyle: 'bold'
     }).setOrigin(0.5);
 
-    // 2. TOP HUD BAR + GRIMOIRE MENU BUTTON
+    // 2. TOP HUD BAR + GRIMOIRE SKILLS BUTTON
     this.add.rectangle(width / 2, hudTopY + 20, width - 16, 40, colors.panelRoyalBlue)
       .setStrokeStyle(2, colors.goldBorder);
     this.scoreText = this.add.text(18, hudTopY + 12, '', {
@@ -237,15 +239,17 @@ export class BattleScene extends Phaser.Scene {
 
     adBtn.on('pointerdown', () => {
       if (this.isGameOver) return;
-      const spawnedIdx = ForgeGrid.spawnRuneInEmptySlot(this.saveData.gridRunes, 2);
-      if (spawnedIdx === -1) {
-        this.showPopupBanner(screenWidth - 108, btnY - 26, 'GRID FULL! MERGE FIRST!', '#ffab40');
-        return;
-      }
-      SaveSystem.save(this.saveData);
-      SoundSynth.playUpgradeFanfare();
-      this.showPopupBanner(screenWidth - 108, btnY - 28, 'REWARDED AD: TIER-II RUNE!', '#ffd740');
-      this.renderForgeGrid();
+      AdService.getInstance().showRewardedAd(() => {
+        const spawnedIdx = ForgeGrid.spawnRuneInEmptySlot(this.saveData.gridRunes, 2);
+        if (spawnedIdx === -1) {
+          this.showPopupBanner(screenWidth - 108, btnY - 26, 'GRID FULL! MERGE FIRST!', '#ffab40');
+          return;
+        }
+        SaveSystem.save(this.saveData);
+        SoundSynth.playUpgradeFanfare();
+        this.showPopupBanner(screenWidth - 108, btnY - 28, 'REWARDED AD: TIER-II RUNE!', '#ffd740');
+        this.renderForgeGrid();
+      });
     });
   }
 
@@ -518,12 +522,21 @@ export class BattleScene extends Phaser.Scene {
 
   private onVolleyComplete(): void {
     if (this.blocks.length === 0) {
+      const clearedWave = this.wave;
       this.wave++;
       this.saveData.highestWave = Math.max(this.saveData.highestWave, this.wave);
-      this.saveData.coins += 50;
+      const baseWaveReward = 60;
+      this.saveData.coins += baseWaveReward;
       SaveSystem.save(this.saveData);
-      this.updateHud();
-      this.spawnNewWaveBlocks();
+      SoundSynth.playUpgradeFanfare();
+
+      // Open Screen 4: Victory Loot Chest & Opt-in Double Rewards Modal!
+      this.scene.start('RewardModalScene', {
+        waveCleared: clearedWave,
+        baseCoinsEarned: baseWaveReward,
+        score: this.score
+      });
+      return;
     }
     this.statusHintText.setText('MERGE RUNES BELOW OR DRAG ARENA TO FIRE!');
     this.statusHintText.setVisible(true);
@@ -560,13 +573,15 @@ export class BattleScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     reviveBtn.on('pointerdown', () => {
-      for (const b of this.blocks) {
-        b.box.destroy();
-        b.hpText.destroy();
-      }
-      this.blocks = [];
-      this.isGameOver = false;
-      this.scene.restart();
+      AdService.getInstance().showRewardedAd(() => {
+        for (const b of this.blocks) {
+          b.box.destroy();
+          b.hpText.destroy();
+        }
+        this.blocks = [];
+        this.isGameOver = false;
+        this.scene.restart();
+      });
     });
 
     const menuBtn = this.add.rectangle(width / 2, height / 2 + 98, 240, 40, 0x5c4033)

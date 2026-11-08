@@ -1,10 +1,11 @@
 /**
- * Phase 5: Screen 1 - Warm Fantasy Alchemist Grimoire & Skill Tree Menu
+ * Phase 8: Screen 1 - Warm Fantasy Alchemist Grimoire & Neutral Age Gate Compliance
  */
 import Phaser from 'phaser';
 import { ThemeConfig } from '../config/ThemeConfig';
 import { SaveSystem, PlayerSaveData } from '../core/SaveSystem';
 import { SoundSynth } from '../core/SoundSynth';
+import { AdService } from '../core/AdService';
 
 interface SkillNodeConfig {
   key: string;
@@ -88,7 +89,7 @@ export class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5);
     this.updateCurrencyHeader();
 
-    // 3. WARM PARCHMENT GRIMOIRE SKILL TREE PANEL (Screen 1 Look)
+    // 3. WARM PARCHMENT GRIMOIRE SKILL TREE PANEL
     this.add.rectangle(width / 2, 420, width - 24, 510, colors.panelParchment)
       .setStrokeStyle(4, colors.goldBorder);
 
@@ -103,7 +104,7 @@ export class MenuScene extends Phaser.Scene {
     this.treeContainer = this.add.container(0, 0);
     this.renderSkillTree();
 
-    // 4. BOTTOM ACTION BUTTONS (PLAY & FREE COINS AD)
+    // 4. BOTTOM ACTION BUTTONS
     const playBtn = this.add.rectangle(110, height - 70, 175, 54, colors.buttonPlayGreen)
       .setStrokeStyle(3, 0xffffff)
       .setInteractive({ useHandCursor: true });
@@ -132,11 +133,79 @@ export class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     freeGoldBtn.on('pointerdown', () => {
-      this.saveData.coins += 150;
-      SaveSystem.save(this.saveData);
-      SoundSynth.playUpgradeFanfare();
-      this.updateCurrencyHeader();
-      this.renderSkillTree();
+      AdService.getInstance().showRewardedAd(() => {
+        this.saveData.coins += 150;
+        SaveSystem.save(this.saveData);
+        SoundSynth.playUpgradeFanfare();
+        this.updateCurrencyHeader();
+        this.renderSkillTree();
+      });
+    });
+
+    // 5. GOOGLE PLAY FAMILIES NEUTRAL AGE GATE (First Launch Only)
+    if (this.saveData.userAgeDeclared === null) {
+      this.showNeutralAgeGateModal();
+    } else {
+      AdService.getInstance().configureAgeCompliance(this.saveData.userAgeDeclared);
+      AdService.getInstance().initializeAdMob();
+    }
+  }
+
+  private showNeutralAgeGateModal(): void {
+    const { width, height } = ThemeConfig.screen;
+    const { colors } = ThemeConfig;
+
+    const modalGroup = this.add.container(0, 0);
+    const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.82)
+      .setInteractive();
+    const box = this.add.rectangle(width / 2, height / 2, width - 40, 250, colors.bgWarmStone)
+      .setStrokeStyle(4, colors.goldBorder);
+
+    const title = this.add.text(width / 2, height / 2 - 80, 'WELCOME ALCHEMIST!', {
+      fontSize: '18px',
+      color: '#ffdf73',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+
+    const subtitle = this.add.text(
+      width / 2,
+      height / 2 - 42,
+      'Please select your age group so we can\nconfigure family-safe ad settings:',
+      {
+        fontSize: '12px',
+        color: '#fff7e6',
+        align: 'center'
+      }
+    ).setOrigin(0.5);
+
+    const brackets = [
+      { label: 'Ages 10 – 12', ageValue: 11, x: width / 2 - 82, y: height / 2 + 25 },
+      { label: 'Ages 13 – 17', ageValue: 15, x: width / 2 + 82, y: height / 2 + 25 },
+      { label: 'Ages 18+', ageValue: 20, x: width / 2, y: height / 2 + 82 }
+    ];
+
+    modalGroup.add([overlay, box, title, subtitle]);
+
+    brackets.forEach((b) => {
+      const btn = this.add.rectangle(b.x, b.y, 148, 42, colors.panelRoyalBlue)
+        .setStrokeStyle(2, colors.goldHighlight)
+        .setInteractive({ useHandCursor: true });
+      const txt = this.add.text(b.x, b.y, b.label, {
+        fontSize: '13px',
+        color: '#ffffff',
+        fontStyle: 'bold'
+      }).setOrigin(0.5);
+
+      btn.on('pointerdown', () => {
+        this.saveData.userAgeDeclared = b.ageValue;
+        SaveSystem.save(this.saveData);
+        AdService.getInstance().configureAgeCompliance(b.ageValue);
+        AdService.getInstance().initializeAdMob();
+        SoundSynth.playUpgradeFanfare();
+        modalGroup.destroy();
+      });
+
+      modalGroup.add([btn, txt]);
     });
   }
 
@@ -144,7 +213,6 @@ export class MenuScene extends Phaser.Scene {
     this.treeContainer.removeAll(true);
     const { colors } = ThemeConfig;
 
-    // Connecting golden branches between skill nodes
     const lines = this.add.graphics();
     lines.lineStyle(5, 0x8d6e63, 1);
     lines.lineBetween(195, 265, 105, 425);
@@ -208,7 +276,6 @@ export class MenuScene extends Phaser.Scene {
       this.treeContainer.add([card, orbIcon, lvlBadge, titleTxt, descTxt, upgBtn, btnTxt]);
     }
 
-    // Bottom info summary on parchment
     const infoText = this.add.text(
       ThemeConfig.screen.width / 2,
       585,
