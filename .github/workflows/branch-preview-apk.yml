@@ -37,12 +37,13 @@ jobs:
       - name: Build Web Bundle (TypeScript + Vite)
         run: npm run build
 
-      - name: Initialize & Sync Capacitor Android
+      - name: Initialize, Sync & Patch Capacitor Android
         run: |
           if [ ! -d "android" ]; then
             npx cap add android
           fi
           npx cap sync android
+          node scripts/configure-android.mjs
 
       - name: Build Debug APK with Gradle
         working-directory: ./android

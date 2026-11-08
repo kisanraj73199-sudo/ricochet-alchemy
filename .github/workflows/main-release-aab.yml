@@ -2,6 +2,8 @@ name: Main Production Release (Signed AAB & APK)
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*.*.*'
 
@@ -30,12 +32,13 @@ jobs:
           npm test
           npm run build
 
-      - name: Sync Capacitor Android
+      - name: Sync & Patch Capacitor Android
         run: |
           if [ ! -d "android" ]; then
             npx cap add android
           fi
           npx cap sync android
+          node scripts/configure-android.mjs
 
       - name: Decode Keystore from GitHub Secrets & Build Signed Bundle
         env:
@@ -48,16 +51,21 @@ jobs:
           chmod +x gradlew
           if [ -n "$KEYSTORE_BASE64" ]; then
             echo "$KEYSTORE_BASE64" | base64 --decode > release-key.jks
-            ./gradlew bundleRelease -Pandroid.injected.signing.store.file=$(pwd)/release-key.jks -Pandroid.injected.signing.store.password=$KEYSTORE_PASSWORD -Pandroid.injected.signing.key.alias=$KEY_ALIAS -Pandroid.injected.signing.key.password=$KEY_PASSWORD
+            ./gradlew bundleRelease assembleRelease \
+              -Pandroid.injected.signing.store.file=$(pwd)/release-key.jks \
+              -Pandroid.injected.signing.store.password=$KEYSTORE_PASSWORD \
+              -Pandroid.injected.signing.key.alias=$KEY_ALIAS \
+              -Pandroid.injected.signing.key.password=$KEY_PASSWORD
           else
-            echo "No signing secret configured yet. Building unsigned release bundle for verification."
+            echo "No signing secret configured yet. Building debug APK for verification."
             ./gradlew assembleDebug
           fi
 
-      - name: Upload Release Artifacts
+      - name: Upload Release Artifacts (Play Store AAB + Signed APK)
         uses: actions/upload-artifact@v4
         with:
           name: playstore-release-bundle
           path: |
             android/app/build/outputs/bundle/release/*.aab
+            android/app/build/outputs/apk/release/*.apk
             android/app/build/outputs/apk/debug/*.apk
