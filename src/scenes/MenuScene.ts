@@ -1,5 +1,5 @@
 /**
- * Futuristic Crystal-Clean Command Dashboard & Grimoire Skill Tree
+ * PRO-ULTRA Screen 1: Ornate Alchemist Grimoire Skill Tree & Command Dashboard
  */
 import Phaser from 'phaser';
 import { ThemeConfig } from '../config/ThemeConfig';
@@ -32,25 +32,25 @@ export class MenuScene extends Phaser.Scene {
       desc: '+15% All Rune Damage',
       texKey: 'orb_FIRE_3',
       x: 195,
-      y: 315,
+      y: 320,
       baseCost: 80
     },
     {
       key: 'empoweredCore',
-      title: 'ARCANE CORE',
+      title: 'EMPOWERED CORE',
       desc: '+20% Combo Multiplier',
       texKey: 'orb_LIGHTNING_3',
       x: 105,
-      y: 495,
+      y: 500,
       baseCost: 100
     },
     {
       key: 'alchemistGreed',
-      title: 'CRYSTAL GREED',
+      title: 'ALCHEMIST GREED',
       desc: '+25% Gold Drops',
       texKey: 'orb_NATURE_3',
       x: 285,
-      y: 495,
+      y: 500,
       baseCost: 90
     }
   ];
@@ -65,9 +65,9 @@ export class MenuScene extends Phaser.Scene {
     const { width, height, topAdBannerHeight } = ThemeConfig.screen;
     const { colors } = ThemeConfig;
 
-    // 1. TOP SAFE BANNER AD DOCK
+    // 1. Top Safe Banner Ad Dock
     this.add.rectangle(width / 2, topAdBannerHeight / 2, width, topAdBannerHeight, 0x0d0917)
-      .setStrokeStyle(1.5, 0x3f2e66);
+      .setStrokeStyle(1.5, colors.goldBorder);
     this.add.text(width / 2, topAdBannerHeight / 2, 'ADMOB TOP BANNER AD (SAFE ZONE)', {
       fontFamily: "'Orbitron', sans-serif",
       fontSize: '10px',
@@ -75,50 +75,44 @@ export class MenuScene extends Phaser.Scene {
       fontStyle: 'bold'
     }).setOrigin(0.5);
 
-    // 2. FUTURISTIC COMMAND DASHBOARD HEADER
-    const g = this.add.graphics();
-    g.fillGradientStyle(0x21153b, 0x21153b, 0x100a20, 0x100a20, 1);
-    g.fillRoundedRect(12, 70, width - 24, 118, 12);
-    g.lineStyle(3, colors.goldBorder, 1);
-    g.strokeRoundedRect(12, 70, width - 24, 118, 12);
+    // 2. Ornate Royal Blue & Gold Command Header
+    ArtRenderer.drawOrnatePanel(this, 12, 68, width - 24, 120, 0x26466d, 0x14243b, 0xffd54f);
 
-    this.add.text(width / 2, 92, 'RICOCHET ALCHEMY', {
+    this.add.text(width / 2, 90, 'RICOCHET ALCHEMY', {
       fontFamily: "'Orbitron', sans-serif",
-      fontSize: '18px',
-      color: '#00e5ff',
+      fontSize: '19px',
+      color: '#ffea00',
       fontStyle: 'bold',
-      stroke: '#000000',
-      strokeThickness: 4
+      stroke: '#241200',
+      strokeThickness: 5
     }).setOrigin(0.5);
 
-    this.add.image(width / 2 - 62, 118, 'icon_coin');
-    this.coinsText = this.add.text(width / 2 - 46, 118, '', {
+    this.add.image(width / 2 - 64, 116, 'icon_coin').setScale(1.1);
+    this.coinsText = this.add.text(width / 2 - 46, 116, '', {
       fontFamily: "'Orbitron', sans-serif",
       fontSize: '14px',
       color: '#ffd740',
-      fontStyle: 'bold'
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 3
     }).setOrigin(0, 0.5);
 
-    // Infinite Stage Progression Roadmap inside Dashboard
-    this.stageInfoText = this.add.text(width / 2, 145, '', {
-      fontFamily: "'Orbitron', sans-serif",
-      fontSize: '10.5px',
+    this.stageInfoText = this.add.text(width / 2, 143, '', {
+      fontFamily: "'Chakra Petch', sans-serif",
+      fontSize: '11px',
       color: '#fff7e6',
       fontStyle: 'bold'
     }).setOrigin(0.5);
 
-    this.drawCampaignStageNodes(width / 2, 170);
+    this.drawCampaignStageNodes(width / 2, 168);
     this.updateCurrencyHeader();
 
-    // 3. FUTURISTIC CRYSTAL GRIMOIRE PANEL
-    g.fillGradientStyle(0x160f29, 0x160f29, 0x2a1b4e, 0x2a1b4e, 1);
-    g.fillRoundedRect(12, 200, width - 24, 465, 14);
-    g.lineStyle(3.5, 0x00e5ff, 0.8);
-    g.strokeRoundedRect(12, 200, width - 24, 465, 14);
+    // 3. Warm Parchment & Gold Ornate Grimoire Panel (Matching Reference Pic Screen 1!)
+    ArtRenderer.drawOrnatePanel(this, 12, 198, width - 24, 470, 0xf3dcb9, 0xd4b07f, 0xffb300);
 
-    this.add.rectangle(width / 2, 222, 240, 32, 0x0d081a)
-      .setStrokeStyle(2, colors.goldHighlight);
-    this.add.text(width / 2, 222, '❖ ALCHEMIST TECH TREE ❖', {
+    // Royal Blue Ribbon Header on top of Parchment
+    ArtRenderer.drawOrnatePanel(this, width / 2 - 125, 208, 250, 36, 0x26466d, 0x162942, 0xffd54f);
+    this.add.text(width / 2, 226, '✨ ALCHEMIST GRIMOIRE ✨', {
       fontFamily: "'Orbitron', sans-serif",
       fontSize: '12px',
       color: '#ffdf73',
@@ -128,8 +122,8 @@ export class MenuScene extends Phaser.Scene {
     this.treeContainer = this.add.container(0, 0);
     this.renderSkillTree();
 
-    // 4. BOTTOM 3D GLOSSY TACTILE GAME BUTTONS
-    ArtRenderer.createTactileButton(this, 106, height - 66, 'btn_GREEN_lg', '▶ LAUNCH STAGE', '13px', () => {
+    // 4. Bottom 3D Glossy Tactile Game Buttons
+    ArtRenderer.createTactileButton(this, 106, height - 66, 'btn_GREEN_lg', '▶ PLAY BATTLE', '13px', () => {
       SoundSynth.playUpgradeFanfare();
       this.scene.start('BattleScene');
     });
@@ -156,7 +150,7 @@ export class MenuScene extends Phaser.Scene {
     const wave = this.saveData.highestWave || 1;
     const cycleStart = Math.floor((wave - 1) / 5) * 5 + 1;
     const g = this.add.graphics();
-    g.lineStyle(3, 0x00e5ff, 0.5);
+    g.lineStyle(3.5, 0xffd54f, 0.65);
     g.lineBetween(centerX - 110, y, centerX + 110, y);
 
     for (let i = 0; i < 5; i++) {
@@ -165,8 +159,8 @@ export class MenuScene extends Phaser.Scene {
       const isReached = stageNum <= wave;
       const isCurrent = stageNum === wave;
 
-      this.add.circle(nx, y, isCurrent ? 11 : 8, isReached ? 0x00e676 : 0x261e38)
-        .setStrokeStyle(2, isCurrent ? 0xffea00 : 0x00e5ff);
+      this.add.circle(nx, y, isCurrent ? 11 : 8, isReached ? 0x00c853 : 0x1a2639)
+        .setStrokeStyle(2, isCurrent ? 0xffea00 : 0xffd54f);
       this.add.text(nx, y, `${stageNum}`, {
         fontFamily: "'Orbitron', sans-serif",
         fontSize: '9px',
@@ -179,28 +173,40 @@ export class MenuScene extends Phaser.Scene {
   private renderSkillTree(): void {
     this.treeContainer.removeAll(true);
 
-    // Glowing Cyan Energy Conduit Lines between nodes
+    // Ornate Golden Conduit Lines connecting Skill Nodes
     const lines = this.add.graphics();
-    lines.lineStyle(4, 0x00e5ff, 0.55);
-    lines.lineBetween(195, 315, 105, 495);
-    lines.lineBetween(195, 315, 285, 495);
-    lines.lineBetween(105, 495, 285, 495);
+    lines.lineStyle(7, 0x5d3a1a, 1);
+    lines.lineBetween(195, 320, 105, 500);
+    lines.lineBetween(195, 320, 285, 500);
+    lines.lineBetween(105, 500, 285, 500);
+    lines.lineStyle(3, 0xffd54f, 1);
+    lines.lineBetween(195, 320, 105, 500);
+    lines.lineBetween(195, 320, 285, 500);
+    lines.lineBetween(105, 500, 285, 500);
     this.treeContainer.add(lines);
 
     for (const skill of this.skills) {
       const currentLvl = this.saveData.grimoireLevels[skill.key] || 1;
       const cost = skill.baseCost * currentLvl;
 
-      // Bevelled Dark Crystal Card
-      const card = this.add.rectangle(skill.x, skill.y, 156, 144, 0x0f0a1c)
-        .setStrokeStyle(2.5, 0xffd54f);
+      // Ornate Dark Stone Skill Node Card
+      const card = ArtRenderer.drawOrnatePanel(
+        this,
+        skill.x - 78,
+        skill.y - 74,
+        156,
+        148,
+        0x3b281e,
+        0x1f140e,
+        0xffca28
+      );
 
-      const orbIcon = this.add.image(skill.x, skill.y - 34, skill.texKey).setScale(0.92);
+      const orbIcon = this.add.image(skill.x, skill.y - 34, skill.texKey).setScale(0.94);
 
-      const lvlBadge = this.add.text(skill.x + 26, skill.y - 52, `LV.${currentLvl}`, {
+      const lvlBadge = this.add.text(skill.x + 28, skill.y - 52, `Lv.${currentLvl}`, {
         fontFamily: "'Orbitron', sans-serif",
         fontSize: '10px',
-        color: '#00e676',
+        color: '#69f0ae',
         fontStyle: 'bold',
         stroke: '#000000',
         strokeThickness: 3
@@ -210,13 +216,16 @@ export class MenuScene extends Phaser.Scene {
         fontFamily: "'Orbitron', sans-serif",
         fontSize: '11px',
         color: '#ffdf73',
-        fontStyle: 'bold'
+        fontStyle: 'bold',
+        stroke: '#000000',
+        strokeThickness: 3
       }).setOrigin(0.5);
 
       const descTxt = this.add.text(skill.x, skill.y + 21, skill.desc, {
         fontFamily: "'Chakra Petch', sans-serif",
         fontSize: '10px',
-        color: '#b2ebf2'
+        color: '#fff7e6',
+        fontStyle: 'bold'
       }).setOrigin(0.5);
 
       const canAfford = this.saveData.coins >= cost;
@@ -243,15 +252,14 @@ export class MenuScene extends Phaser.Scene {
       this.treeContainer.add([card, orbIcon, lvlBadge, titleTxt, descTxt, upgBtn]);
     }
 
-    // Properly wrapped footer note inside panel bounds
     const infoText = this.add.text(
       ThemeConfig.screen.width / 2,
-      625,
-      'PERMANENTLY AMPLIFIES RUNE POWER ACROSS INFINITE STAGES',
+      634,
+      'PERMANENTLY BOOSTS ELEMENTAL RUNE POWER IN ALL STAGES',
       {
         fontFamily: "'Orbitron', sans-serif",
         fontSize: '9.5px',
-        color: '#ffd54f',
+        color: '#3e2723',
         fontStyle: 'bold'
       }
     ).setOrigin(0.5);
@@ -262,8 +270,7 @@ export class MenuScene extends Phaser.Scene {
     const { width, height } = ThemeConfig.screen;
     const modalGroup = this.add.container(0, 0);
     const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.85).setInteractive();
-    const box = this.add.rectangle(width / 2, height / 2, width - 36, 250, 0x160f29)
-      .setStrokeStyle(3, 0x00e5ff);
+    const box = ArtRenderer.drawOrnatePanel(this, 22, height / 2 - 125, width - 44, 250, 0x26466d, 0x14243b, 0xffd54f);
 
     const title = this.add.text(width / 2, height / 2 - 80, 'WELCOME ALCHEMIST!', {
       fontFamily: "'Orbitron', sans-serif",
