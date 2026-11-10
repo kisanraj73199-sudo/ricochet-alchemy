@@ -1,21 +1,19 @@
 /**
- * ZERO-BOX EDGE-TO-EDGE PRO GAME ART ENGINE
- * Generates Full-Screen Seamless Worlds, 3D Crystalline Core Sentinels,
- * Floating Circular Icon Medallions, and High-Impact Elemental Spheres.
+ * PRO-ULTRA 10-STAGE WORLD SCENERY, 2X/3X PRISM BUBBLES & 3D SCOREBOARD ART ENGINE
  */
 import Phaser from 'phaser';
 import { ElementType } from '../config/OrbsConfig';
 import { SoundSynth } from '../core/SoundSynth';
+import { BiomePalette } from '../gameplay/WaveSpawner';
 
 export class ArtRenderer {
     public static generateAllGameTextures(scene: Phaser.Scene): void {
-        if (scene.textures.exists('edge_to_edge_v3')) return;
-        scene.textures.createCanvas('edge_to_edge_v3', 2, 2)?.refresh();
+        if (scene.textures.exists('mega_upgrade_v7')) return;
+        scene.textures.createCanvas('mega_upgrade_v7', 2, 2)?.refresh();
 
-        // 1. Full-Screen Seamless Background Texture (390x844 Edge-to-Edge)
         this.createSeamlessWorldBackground(scene);
 
-        // 2. 3D Elemental Plasma Spheres (Tiers 1 to 4)
+        // 1. Player Elemental Orbs
         const elements: ElementType[] = ['FIRE', 'ICE', 'LIGHTNING', 'NATURE'];
         for (const el of elements) {
             for (let tier = 1; tier <= 4; tier++) {
@@ -23,38 +21,357 @@ export class ArtRenderer {
             }
         }
 
-        // 3. 3D Multi-Crystal Core Sentinels (Targets we shatter in the arena!)
-        this.createCrystalSentinelTexture(scene, 'monster_ICE', '#00f5ff', '#0066ff', '#001945', false);
-        this.createCrystalSentinelTexture(scene, 'monster_VOID', '#ff4081', '#aa00ff', '#240042', false);
-        this.createCrystalSentinelTexture(scene, 'monster_MAGMA', '#ffea00', '#ff3d00', '#4a0700', false);
-        this.createCrystalSentinelTexture(scene, 'monster_BOMB', '#ffffff', '#ff1744', '#5c0011', false);
-        this.createCrystalSentinelTexture(scene, 'monster_HEALER', '#b9f6ca', '#00e676', '#003b19', false);
-        this.createCrystalSentinelTexture(scene, 'monster_BOSS', '#00f5ff', '#ff007f', '#1f003d', true);
+        // 2. Super-Shiny 3D Gem Bubbles + Cursed Bomb + 2X & 3X Multiball Prisms + Wormhole Portals
+        this.createShinyTargetBubbleTexture(scene, 'monster_ICE', '#ffffff', '#00f5ff', '#0055ff', '#001233', false);
+        this.createShinyTargetBubbleTexture(scene, 'monster_VOID', '#ffffff', '#ff6ec7', '#aa00ff', '#21003b', false);
+        this.createShinyTargetBubbleTexture(scene, 'monster_MAGMA', '#fffde7', '#ffab00', '#ff1744', '#3e000b', false);
+        this.createShinyTargetBubbleTexture(scene, 'monster_HEALER', '#ffffff', '#69f0ae', '#00c853', '#002910', false);
+        this.createShinyTargetBubbleTexture(scene, 'monster_BOSS', '#ffffff', '#00f5ff', '#ff007f', '#1c0038', true);
+        this.createCursedBombBubbleTexture(scene, 'monster_BOMB');
+        this.createPrismMysteryBubbleTexture(scene, 'monster_PRISM', '2X', '#00f5ff', '#7c4dff');
+        this.createPrismMysteryBubbleTexture(scene, 'monster_PRISM_3X', '3X', '#ffea00', '#ff007f');
+        this.createWormholePortalTexture(scene, 'portal_BLUE', '#00f5ff', '#0044ff');
+        this.createWormholePortalTexture(scene, 'portal_ORANGE', '#ffea00', '#ff3d00');
 
-        // 4. Floating Circular & Hexagonal Icon Medallions (Replaces Boxy Buttons!)
-        this.createIconMedallionTexture(scene, 'medallion_CYAN', 64, '#00f5ff', '#0055ff');
-        this.createIconMedallionTexture(scene, 'medallion_GOLD', 64, '#ffea00', '#ff6d00');
-        this.createIconMedallionTexture(scene, 'medallion_GREEN', 64, '#00f5a0', '#008c4a');
-        this.createIconMedallionTexture(scene, 'medallion_MAGENTA', 64, '#ff4081', '#8e00b8');
-        this.createIconMedallionTexture(scene, 'medallion_PLAY', 96, '#00f5a0', '#0077ff');
+        // 3. Medallions, 3D Number Badges & Hero Play Portal
+        this.createIconMedallionTexture(scene, 'medallion_CYAN', 66, '#00f5ff', '#0055ff');
+        this.createIconMedallionTexture(scene, 'medallion_GOLD', 66, '#ffea00', '#ff6d00');
+        this.createIconMedallionTexture(scene, 'medallion_GREEN', 66, '#00f5a0', '#008c4a');
+        this.createIconMedallionTexture(scene, 'medallion_MAGENTA', 66, '#ff4081', '#8e00b8');
+        this.createHeroPlayPortalTexture(scene, 'medallion_PLAY', 114);
+        this.create3DNumberPillTexture(scene, 'hp_pill_badge', 46, 18);
 
-        // 5. Sleek Pill Action Badges (For Upgrade / Launch / Ad actions without boxy borders)
-        this.createSleekPillTexture(scene, 'btn_GREEN_lg', 176, 50, '#00f5a0', '#009e52');
-        this.createSleekPillTexture(scene, 'btn_ORANGE_lg', 176, 50, '#ff9100', '#ff0055');
-        this.createSleekPillTexture(scene, 'btn_GREEN_md', 158, 42, '#00f5a0', '#009e52');
-        this.createSleekPillTexture(scene, 'btn_ORANGE_md', 158, 42, '#ff9100', '#ff0055');
-        this.createSleekPillTexture(scene, 'btn_BLUE_sm', 124, 32, '#00f5ff', '#0055ff');
-        this.createSleekPillTexture(scene, 'btn_GRAY_sm', 124, 32, '#607d8b', '#263238');
-        this.createSleekPillTexture(scene, 'btn_PURPLE_nav', 86, 32, '#ff4081', '#7b1fa2');
+        // 4. Sleek Pill Action Buttons
+        this.createSleekPillTexture(scene, 'btn_GREEN_lg', 180, 52, '#00f5a0', '#009e52');
+        this.createSleekPillTexture(scene, 'btn_ORANGE_lg', 180, 52, '#ff9100', '#ff0055');
+        this.createSleekPillTexture(scene, 'btn_GREEN_md', 160, 44, '#00f5a0', '#009e52');
+        this.createSleekPillTexture(scene, 'btn_ORANGE_md', 160, 44, '#ff9100', '#ff0055');
+        this.createSleekPillTexture(scene, 'btn_BLUE_sm', 126, 34, '#00f5ff', '#0055ff');
+        this.createSleekPillTexture(scene, 'btn_GRAY_sm', 126, 34, '#607d8b', '#263238');
+        this.createSleekPillTexture(scene, 'btn_PURPLE_nav', 88, 34, '#ff4081', '#7b1fa2');
 
-        // 6. Floating Holo-Ring Slot, Cannon, Chest & Particles
+        // 5. Luxury Scoreboard Crest, Dragon-Tech Cannon, Spinning Pedestal, Chests & Particles
+        this.createLuxuryScoreboardCrestTexture(scene);
         this.createHoloRingSlotTexture(scene, 'slot_normal', false);
         this.createHoloRingSlotTexture(scene, 'slot_top_queue', true);
+        this.createCannonPedestalRingTexture(scene);
         this.createFuturisticCannonTexture(scene);
+        this.createClosedChestTexture(scene);
         this.createTreasureChestTexture(scene);
         this.createSunburstTexture(scene);
         this.createCustomGameIcons(scene);
         this.createParticleTexture(scene);
+    }
+
+    private static create3DNumberPillTexture(scene: Phaser.Scene, key: string, w: number, h: number): void {
+        const canvasTex = scene.textures.createCanvas(key, w, h);
+        if (!canvasTex) return;
+        const ctx = canvasTex.getContext();
+
+        const grad = ctx.createLinearGradient(0, 0, 0, h);
+        grad.addColorStop(0, 'rgba(24, 12, 48, 0.92)');
+        grad.addColorStop(1, 'rgba(6, 3, 14, 0.95)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.roundRect(1, 1, w - 2, h - 2, h / 2);
+        ctx.fill();
+
+        ctx.lineWidth = 1.4;
+        ctx.strokeStyle = 'rgba(255, 202, 40, 0.85)';
+        ctx.stroke();
+
+        canvasTex.refresh();
+    }
+
+    private static createLuxuryScoreboardCrestTexture(scene: Phaser.Scene): void {
+        const w = 378;
+        const h = 64;
+        const canvasTex = scene.textures.createCanvas('scoreboard_crest', w, h);
+        if (!canvasTex) return;
+        const ctx = canvasTex.getContext();
+        const cx = w / 2;
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+        ctx.beginPath();
+        ctx.roundRect(4, 6, w - 8, h - 8, 16);
+        ctx.fill();
+
+        const bodyGrad = ctx.createLinearGradient(0, 2, 0, h - 6);
+        bodyGrad.addColorStop(0, '#1e1042');
+        bodyGrad.addColorStop(0.5, '#0e0724');
+        bodyGrad.addColorStop(1, '#060312');
+        ctx.fillStyle = bodyGrad;
+        ctx.beginPath();
+        ctx.roundRect(4, 3, w - 8, h - 9, 16);
+        ctx.fill();
+
+        const crownGrad = ctx.createLinearGradient(cx - 95, 2, cx + 95, h - 4);
+        crownGrad.addColorStop(0, '#2b145e');
+        crownGrad.addColorStop(0.5, '#160936');
+        crownGrad.addColorStop(1, '#2b145e');
+        ctx.fillStyle = crownGrad;
+        ctx.beginPath();
+        ctx.moveTo(cx - 98, 3);
+        ctx.lineTo(cx + 98, 3);
+        ctx.lineTo(cx + 82, h - 4);
+        ctx.lineTo(cx - 82, h - 4);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = '#ffca28';
+        ctx.beginPath();
+        ctx.roundRect(4, 3, w - 8, h - 9, 16);
+        ctx.stroke();
+
+        ctx.lineWidth = 1.8;
+        ctx.strokeStyle = '#00f5ff';
+        ctx.beginPath();
+        ctx.moveTo(cx - 96, 4);
+        ctx.lineTo(cx - 82, h - 5);
+        ctx.moveTo(cx + 96, 4);
+        ctx.lineTo(cx + 82, h - 5);
+        ctx.stroke();
+
+        const shine = ctx.createLinearGradient(0, 4, 0, 22);
+        shine.addColorStop(0, 'rgba(255, 255, 255, 0.35)');
+        shine.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        ctx.fillStyle = shine;
+        ctx.beginPath();
+        ctx.roundRect(14, 5, w - 28, 16, 8);
+        ctx.fill();
+
+        canvasTex.refresh();
+    }
+
+    private static createCannonPedestalRingTexture(scene: Phaser.Scene): void {
+        const size = 104;
+        const canvasTex = scene.textures.createCanvas('cannon_pedestal_ring', size, size);
+        if (!canvasTex) return;
+        const ctx = canvasTex.getContext();
+        const cx = size / 2;
+        const cy = size / 2;
+
+        const glow = ctx.createRadialGradient(cx, cy, 8, cx, cy, 48);
+        glow.addColorStop(0, 'rgba(255, 145, 0, 0.55)');
+        glow.addColorStop(0.55, 'rgba(0, 245, 255, 0.35)');
+        glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 48, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = '#ffca28';
+        ctx.lineWidth = 2.5;
+        for (let i = 0; i < 6; i++) {
+            const a = (Math.PI * 2 * i) / 6;
+            ctx.beginPath();
+            ctx.arc(cx, cy, 38, a + 0.08, a + 0.82);
+            ctx.stroke();
+        }
+
+        ctx.strokeStyle = 'rgba(0, 245, 255, 0.75)';
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        for (let i = 0; i < 8; i++) {
+            const a = (Math.PI * 2 * i) / 8;
+            const px = cx + Math.cos(a) * 29;
+            const py = cy + Math.sin(a) * 29;
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.stroke();
+
+        for (let i = 0; i < 8; i++) {
+            const a = (Math.PI * 2 * i) / 8;
+            const nx = cx + Math.cos(a) * 38;
+            const ny = cy + Math.sin(a) * 38;
+            ctx.fillStyle = i % 2 === 0 ? '#00f5ff' : '#ffea00';
+            ctx.beginPath();
+            ctx.arc(nx, ny, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        canvasTex.refresh();
+    }
+
+    private static createFuturisticCannonTexture(scene: Phaser.Scene): void {
+        const size = 92;
+        const canvasTex = scene.textures.createCanvas('cannon_turret', size, size);
+        if (!canvasTex) return;
+        const ctx = canvasTex.getContext();
+        const cx = 42;
+        const cy = size / 2;
+
+        const muzzleGlow = ctx.createRadialGradient(cx + 28, cy, 2, cx + 28, cy, 18);
+        muzzleGlow.addColorStop(0, 'rgba(255, 234, 0, 0.9)');
+        muzzleGlow.addColorStop(0.6, 'rgba(255, 61, 0, 0.45)');
+        muzzleGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = muzzleGlow;
+        ctx.beginPath();
+        ctx.arc(cx + 28, cy, 18, 0, Math.PI * 2);
+        ctx.fill();
+
+        const barrelGrad = ctx.createLinearGradient(cx, cy - 11, cx + 34, cy + 11);
+        barrelGrad.addColorStop(0, '#1a0b36');
+        barrelGrad.addColorStop(0.5, '#00f5ff');
+        barrelGrad.addColorStop(1, '#ff6d00');
+        ctx.fillStyle = barrelGrad;
+        ctx.beginPath();
+        ctx.roundRect(cx, cy - 9, 34, 18, 6);
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#ffffff';
+        ctx.stroke();
+
+        const wingGrad = ctx.createLinearGradient(cx - 18, cy - 28, cx + 28, cy + 28);
+        wingGrad.addColorStop(0, '#fff59d');
+        wingGrad.addColorStop(0.45, '#ffca28');
+        wingGrad.addColorStop(0.85, '#ff3d00');
+        wingGrad.addColorStop(1, '#880e4f');
+
+        ctx.fillStyle = wingGrad;
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+
+        ctx.beginPath();
+        ctx.moveTo(cx - 10, cy - 12);
+        ctx.lineTo(cx + 32, cy - 7);
+        ctx.lineTo(cx + 22, cy - 19);
+        ctx.lineTo(cx - 4, cy - 28);
+        ctx.lineTo(cx - 18, cy - 18);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(cx - 10, cy + 12);
+        ctx.lineTo(cx + 32, cy + 7);
+        ctx.lineTo(cx + 22, cy + 19);
+        ctx.lineTo(cx - 4, cy + 28);
+        ctx.lineTo(cx - 18, cy + 18);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        const baseGrad = ctx.createRadialGradient(cx - 5, cy - 5, 3, cx, cy, 20);
+        baseGrad.addColorStop(0, '#311b61');
+        baseGrad.addColorStop(1, '#090414');
+        ctx.fillStyle = baseGrad;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 19, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#ffca28';
+        ctx.stroke();
+
+        const gemGrad = ctx.createRadialGradient(cx - 3, cy - 3, 1, cx, cy, 11);
+        gemGrad.addColorStop(0, '#ffffff');
+        gemGrad.addColorStop(0.45, '#00f5ff');
+        gemGrad.addColorStop(0.85, '#0055ff');
+        gemGrad.addColorStop(1, '#001945');
+        ctx.fillStyle = gemGrad;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 11, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.lineWidth = 1.8;
+        ctx.strokeStyle = '#ffffff';
+        ctx.stroke();
+
+        canvasTex.refresh();
+    }
+
+    /**
+     * Renders a Completely Distinct 10-Stage World Scenery & Color Theme!
+     * Every 10 stages (1-10, 11-20, 21-30, 31-40, 41-50, 51-60) switches both colors AND sacred geometry!
+     */
+    public static drawDynamicBiomeWorld(
+        scene: Phaser.Scene,
+        width: number,
+        height: number,
+        palette: BiomePalette
+    ): void {
+        const g = scene.add.graphics();
+
+        // 1. Deep 10-Stage World Sky Gradient
+        g.fillGradientStyle(palette.topBg, palette.topBg, palette.bottomBg, palette.bottomBg, 1);
+        g.fillRect(0, 0, width, height);
+
+        // 2. Dual Pulsing Nebula Auroras
+        const neb1 = scene.add.circle(width * 0.3, height * 0.35, 165, palette.nebulaGlow, 0.12);
+        const neb2 = scene.add.circle(width * 0.72, height * 0.56, 155, palette.railColor, 0.1);
+        scene.tweens.add({
+            targets: [neb1, neb2],
+            scaleX: 1.2,
+            scaleY: 1.2,
+            alpha: 0.04,
+            duration: 2800,
+            yoyo: true,
+            repeat: -1
+        });
+
+        // 3. Unique Architectural Background Pattern per 10-Stage Chapter!
+        g.lineStyle(1.2, palette.gridColor, 0.11);
+        if (palette.patternStyle === 'MAGMA') {
+            // Diagonal Volcanic Fissure Lines
+            for (let i = -200; i < height; i += 65) {
+                g.lineBetween(0, i, width, i + 180);
+                g.lineBetween(width, i, 0, i + 180);
+            }
+        } else if (palette.patternStyle === 'BIORING') {
+            // Concentric Bio-AlchemicalSacred Rings
+            for (let r = 60; r <= 320; r += 65) {
+                g.strokeCircle(width / 2, height * 0.44, r);
+            }
+        } else if (palette.patternStyle === 'CYBER') {
+            // Perspective Synthwave Horizon Rays
+            for (let x = -120; x <= width + 120; x += 60) {
+                g.lineBetween(width / 2, 110, x, height - 100);
+            }
+            for (let y = 160; y < height - 100; y += 46) {
+                g.lineBetween(0, y, width, y);
+            }
+        } else if (palette.patternStyle === 'SOLAR') {
+            // Imperial Golden Diamond Lattice
+            for (let y = 130; y < height - 120; y += 70) {
+                for (let x = 45; x < width - 30; x += 75) {
+                    g.strokeRect(x - 18, y - 18, 36, 36);
+                }
+            }
+        } else {
+            // Crystal Starlight & Frost Matrix Grid
+            for (let y = 120; y < height - 90; y += 52) {
+                g.lineBetween(0, y, width, y);
+            }
+            for (let x = 32; x < width; x += 55) {
+                g.lineBetween(x, 105, x, height - 90);
+            }
+        }
+
+        // 4. Left & Right Laser Bumper Rails
+        g.fillStyle(palette.railColor, 0.85);
+        g.fillRect(0, 100, 4, height - 210);
+        g.fillRect(width - 4, 100, 4, height - 210);
+
+        // 5. Floating Chapter Particles
+        for (let i = 0; i < 9; i++) {
+            const px = 30 + ((i * 43) % (width - 60));
+            const py = 140 + ((i * 79) % (height - 280));
+            const mote = scene.add.image(px, py, 'glow_spark')
+                .setTint(palette.particleTint)
+                .setAlpha(0.42)
+                .setScale(0.7);
+
+            scene.tweens.add({
+                targets: mote,
+                y: py - 38,
+                alpha: 0.1,
+                duration: 1700 + i * 230,
+                yoyo: true,
+                repeat: -1
+            });
+        }
     }
 
     private static createSeamlessWorldBackground(scene: Phaser.Scene): void {
@@ -64,158 +381,298 @@ export class ArtRenderer {
         if (!canvasTex) return;
         const ctx = canvasTex.getContext();
 
-        // Deep Abyssal Space-Cavern Vertical Gradient
         const bgGrad = ctx.createLinearGradient(0, 0, 0, h);
-        bgGrad.addColorStop(0, '#05020d');
-        bgGrad.addColorStop(0.35, '#0c0621');
-        bgGrad.addColorStop(0.75, '#170b36');
-        bgGrad.addColorStop(1, '#080314');
+        bgGrad.addColorStop(0, '#04020b');
+        bgGrad.addColorStop(0.32, '#0d0626');
+        bgGrad.addColorStop(0.68, '#1a0b3e');
+        bgGrad.addColorStop(1, '#070314');
         ctx.fillStyle = bgGrad;
         ctx.fillRect(0, 0, w, h);
-
-        // Ambient Center Arcane Nebula Glow
-        const nebGrad = ctx.createRadialGradient(w / 2, h * 0.42, 10, w / 2, h * 0.42, 240);
-        nebGrad.addColorStop(0, 'rgba(0, 245, 255, 0.12)');
-        nebGrad.addColorStop(0.5, 'rgba(170, 0, 255, 0.07)');
-        nebGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        ctx.fillStyle = nebGrad;
-        ctx.fillRect(0, 0, w, h);
-
-        // Subtle Perspective Energy Floor Grid (Fades smoothly into the void—no hard box!)
-        ctx.strokeStyle = 'rgba(0, 245, 255, 0.06)';
-        ctx.lineWidth = 1;
-        for (let y = 120; y < h - 80; y += 52) {
-            ctx.beginPath();
-            ctx.moveTo(0, y);
-            ctx.lineTo(w, y);
-            ctx.stroke();
-        }
-        for (let x = 30; x < w; x += 55) {
-            ctx.beginPath();
-            ctx.moveTo(x, 100);
-            ctx.lineTo(x, h - 80);
-            ctx.stroke();
-        }
-
-        // Left & Right Edge Energy Rails (Full-bleed screen edge laser bumpers)
-        const railGrad = ctx.createLinearGradient(0, 100, 0, h - 100);
-        railGrad.addColorStop(0, 'rgba(0,245,255,0)');
-        railGrad.addColorStop(0.2, 'rgba(0,245,255,0.65)');
-        railGrad.addColorStop(0.8, 'rgba(255,0,127,0.65)');
-        railGrad.addColorStop(1, 'rgba(255,0,127,0)');
-        ctx.fillStyle = railGrad;
-        ctx.fillRect(0, 90, 4, h - 180);
-        ctx.fillRect(w - 4, 90, 4, h - 180);
 
         canvasTex.refresh();
     }
 
     /**
-     * Creates a 3D Crystalline Core Sentinel (Multi-spiked crystal cluster + glowing core)
-     * Replaces the old flat pentagon blocks!
+     * Supports both '2X' (Cyan-Violet) and '3X' (Gold-Magenta Jackpot) Multiball Split-Prism Bubbles!
      */
-    private static createCrystalSentinelTexture(
+    private static createPrismMysteryBubbleTexture(
         scene: Phaser.Scene,
         key: string,
-        coreHex: string,
+        label: string,
+        c1: string,
+        c2: string
+    ): void {
+        const size = 62;
+        const canvasTex = scene.textures.createCanvas(key, size, size);
+        if (!canvasTex) return;
+        const ctx = canvasTex.getContext();
+        const cx = size / 2;
+        const cy = size / 2;
+        const r = 22;
+
+        const halo = ctx.createRadialGradient(cx, cy, r * 0.4, cx, cy, r + 8);
+        halo.addColorStop(0, c1);
+        halo.addColorStop(0.55, c2);
+        halo.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = halo;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r + 8, 0, Math.PI * 2);
+        ctx.fill();
+
+        const bodyGrad = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
+        bodyGrad.addColorStop(0, '#ffffff');
+        bodyGrad.addColorStop(0.3, c1);
+        bodyGrad.addColorStop(0.75, c2);
+        bodyGrad.addColorStop(1, '#1a0033');
+
+        ctx.fillStyle = bodyGrad;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.lineWidth = 2.6;
+        ctx.strokeStyle = '#ffffff';
+        ctx.stroke();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 15px Orbitron, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, cx, cy + 1);
+
+        ctx.fillStyle = 'rgba(255,255,255,0.88)';
+        ctx.beginPath();
+        ctx.ellipse(cx - 5, cy - 10, 9, 4, -0.45, 0, Math.PI * 2);
+        ctx.fill();
+
+        canvasTex.refresh();
+    }
+
+    private static createWormholePortalTexture(
+        scene: Phaser.Scene,
+        key: string,
+        brightHex: string,
+        deepHex: string
+    ): void {
+        const size = 64;
+        const canvasTex = scene.textures.createCanvas(key, size, size);
+        if (!canvasTex) return;
+        const ctx = canvasTex.getContext();
+        const cx = size / 2;
+        const cy = size / 2;
+
+        const glow = ctx.createRadialGradient(cx, cy, 4, cx, cy, 28);
+        glow.addColorStop(0, '#ffffff');
+        glow.addColorStop(0.35, brightHex);
+        glow.addColorStop(0.7, deepHex);
+        glow.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 28, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2.2;
+        for (let i = 0; i < 3; i++) {
+            const a = (Math.PI * 2 * i) / 3;
+            ctx.beginPath();
+            ctx.arc(cx, cy, 16, a, a + 1.3);
+            ctx.stroke();
+        }
+
+        ctx.fillStyle = '#05020d';
+        ctx.beginPath();
+        ctx.arc(cx, cy, 7, 0, Math.PI * 2);
+        ctx.fill();
+
+        canvasTex.refresh();
+    }
+
+    private static createShinyTargetBubbleTexture(
+        scene: Phaser.Scene,
+        key: string,
+        specHex: string,
+        brightHex: string,
         midHex: string,
         deepHex: string,
         isBoss: boolean
     ): void {
-        const w = isBoss ? 176 : 64;
-        const h = isBoss ? 110 : 64;
-        const canvasTex = scene.textures.createCanvas(key, w, h);
+        const size = isBoss ? 156 : 62;
+        const canvasTex = scene.textures.createCanvas(key, size, size);
         if (!canvasTex) return;
         const ctx = canvasTex.getContext();
-        const cx = w / 2;
-        const cy = h / 2 + 2;
-        const r = isBoss ? 44 : 22;
+        const cx = size / 2;
+        const cy = size / 2;
+        const r = isBoss ? 58 : 23;
 
-        // 1. Outer Radiant Energy Halo
-        const halo = ctx.createRadialGradient(cx, cy, r * 0.3, cx, cy, r * 1.35);
-        halo.addColorStop(0, coreHex);
-        halo.addColorStop(0.5, midHex);
+        const halo = ctx.createRadialGradient(cx, cy, r * 0.65, cx, cy, r + (isBoss ? 16 : 7));
+        halo.addColorStop(0, brightHex);
+        halo.addColorStop(0.55, midHex);
         halo.addColorStop(1, 'rgba(0,0,0,0)');
         ctx.fillStyle = halo;
         ctx.beginPath();
-        ctx.arc(cx, cy, r * 1.35, 0, Math.PI * 2);
+        ctx.arc(cx, cy, r + (isBoss ? 16 : 7), 0, Math.PI * 2);
         ctx.fill();
 
-        // 2. 8 Jagged 3D Crystal Shards radiating from the core
-        const spikes = isBoss ? 10 : 8;
-        for (let i = 0; i < spikes; i++) {
-            const angle = (Math.PI * 2 * i) / spikes;
-            const len = r * (i % 2 === 0 ? 1.18 : 0.96);
-            const tipX = cx + Math.cos(angle) * len;
-            const tipY = cy + Math.sin(angle) * len;
-            const leftX = cx + Math.cos(angle - 0.32) * (r * 0.55);
-            const leftY = cy + Math.sin(angle - 0.32) * (r * 0.55);
-            const rightX = cx + Math.cos(angle + 0.32) * (r * 0.55);
-            const rightY = cy + Math.sin(angle + 0.32) * (r * 0.55);
+        const sphereGrad = ctx.createRadialGradient(cx - r * 0.3, cy - r * 0.32, 2, cx, cy, r);
+        sphereGrad.addColorStop(0, specHex);
+        sphereGrad.addColorStop(0.28, brightHex);
+        sphereGrad.addColorStop(0.68, midHex);
+        sphereGrad.addColorStop(1, deepHex);
 
-            const spikeGrad = ctx.createLinearGradient(cx, cy, tipX, tipY);
-            spikeGrad.addColorStop(0, deepHex);
-            spikeGrad.addColorStop(0.6, midHex);
-            spikeGrad.addColorStop(1, coreHex);
-
-            ctx.fillStyle = spikeGrad;
-            ctx.beginPath();
-            ctx.moveTo(leftX, leftY);
-            ctx.lineTo(tipX, tipY);
-            ctx.lineTo(rightX, rightY);
-            ctx.closePath();
-            ctx.fill();
-
-            ctx.lineWidth = 1.2;
-            ctx.strokeStyle = 'rgba(255,255,255,0.65)';
-            ctx.stroke();
-        }
-
-        // 3. Central Faceted Octagonal Gem Shell
-        const bodyGrad = ctx.createRadialGradient(cx - 5, cy - 5, 2, cx, cy, r * 0.78);
-        bodyGrad.addColorStop(0, '#ffffff');
-        bodyGrad.addColorStop(0.3, coreHex);
-        bodyGrad.addColorStop(0.75, midHex);
-        bodyGrad.addColorStop(1, deepHex);
-
-        ctx.fillStyle = bodyGrad;
+        ctx.fillStyle = sphereGrad;
         ctx.beginPath();
-        for (let i = 0; i < 8; i++) {
-            const a = (Math.PI * 2 * i) / 8 + Math.PI / 8;
-            const px = cx + Math.cos(a) * (r * 0.76);
-            const py = cy + Math.sin(a) * (r * 0.76);
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.38)';
+        ctx.lineWidth = isBoss ? 2 : 1.2;
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+            const a = (Math.PI * 2 * i) / 6;
+            const px = cx + Math.cos(a) * (r * 0.62);
+            const py = cy + Math.sin(a) * (r * 0.62);
             if (i === 0) ctx.moveTo(px, py);
             else ctx.lineTo(px, py);
         }
         ctx.closePath();
+        ctx.stroke();
+        ctx.restore();
+
+        const rimLight = ctx.createLinearGradient(cx, cy + r * 0.3, cx, cy + r);
+        rimLight.addColorStop(0, 'rgba(255,255,255,0)');
+        rimLight.addColorStop(1, brightHex);
+        ctx.fillStyle = rimLight;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r - 1.5, 0.35, Math.PI - 0.35);
         ctx.fill();
-        ctx.lineWidth = 2;
+
+        ctx.lineWidth = isBoss ? 3.5 : 2.2;
+        ctx.strokeStyle = isBoss ? '#ffea00' : '#ffffff';
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.stroke();
+
+        const glossGrad = ctx.createLinearGradient(cx - r * 0.5, cy - r * 0.85, cx, cy - r * 0.1);
+        glossGrad.addColorStop(0, 'rgba(255,255,255,0.96)');
+        glossGrad.addColorStop(1, 'rgba(255,255,255,0.0)');
+        ctx.fillStyle = glossGrad;
+        ctx.beginPath();
+        ctx.ellipse(cx - r * 0.24, cy - r * 0.45, r * 0.46, r * 0.24, -0.45, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(cx - r * 0.54, cy - r * 0.14, isBoss ? 4.5 : 2.4, 0, Math.PI * 2);
+        ctx.fill();
+
+        canvasTex.refresh();
+    }
+
+    private static createCursedBombBubbleTexture(scene: Phaser.Scene, key: string): void {
+        const size = 62;
+        const canvasTex = scene.textures.createCanvas(key, size, size);
+        if (!canvasTex) return;
+        const ctx = canvasTex.getContext();
+        const cx = size / 2;
+        const cy = size / 2;
+        const r = 21;
+
+        const aura = ctx.createRadialGradient(cx, cy, r * 0.5, cx, cy, r + 8);
+        aura.addColorStop(0, 'rgba(255, 0, 60, 0.9)');
+        aura.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = aura;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r + 8, 0, Math.PI * 2);
+        ctx.fill();
+
+        for (let i = 0; i < 8; i++) {
+            const a = (Math.PI * 2 * i) / 8;
+            const sx = cx + Math.cos(a) * (r + 5);
+            const sy = cy + Math.sin(a) * (r + 5);
+            ctx.fillStyle = '#ff1744';
+            ctx.beginPath();
+            ctx.arc(sx, sy, 3.2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        const bodyGrad = ctx.createRadialGradient(cx - 6, cy - 6, 2, cx, cy, r);
+        bodyGrad.addColorStop(0, '#ff5252');
+        bodyGrad.addColorStop(0.45, '#880e4f');
+        bodyGrad.addColorStop(0.85, '#1a000d');
+        bodyGrad.addColorStop(1, '#000000');
+
+        ctx.fillStyle = bodyGrad;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.lineWidth = 2.4;
+        ctx.strokeStyle = '#ff1744';
+        ctx.stroke();
+
+        ctx.strokeStyle = '#ffea00';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(cx - 7, cy - 7);
+        ctx.lineTo(cx + 7, cy + 7);
+        ctx.moveTo(cx + 7, cy - 7);
+        ctx.lineTo(cx - 7, cy + 7);
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(255,255,255,0.75)';
+        ctx.beginPath();
+        ctx.ellipse(cx - 5, cy - 10, 9, 4, -0.45, 0, Math.PI * 2);
+        ctx.fill();
+
+        canvasTex.refresh();
+    }
+
+    private static createHeroPlayPortalTexture(scene: Phaser.Scene, key: string, size: number): void {
+        const canvasTex = scene.textures.createCanvas(key, size, size);
+        if (!canvasTex) return;
+        const ctx = canvasTex.getContext();
+        const cx = size / 2;
+        const cy = size / 2;
+        const r = size / 2 - 8;
+
+        const glow = ctx.createRadialGradient(cx, cy, r * 0.5, cx, cy, r + 7);
+        glow.addColorStop(0, 'rgba(0, 245, 160, 0.95)');
+        glow.addColorStop(0.6, 'rgba(0, 229, 255, 0.45)');
+        glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r + 7, 0, Math.PI * 2);
+        ctx.fill();
+
+        const ringGrad = ctx.createLinearGradient(0, 0, size, size);
+        ringGrad.addColorStop(0, '#fff59d');
+        ringGrad.addColorStop(0.5, '#ffca28');
+        ringGrad.addColorStop(1, '#ff6f00');
+        ctx.fillStyle = ringGrad;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fill();
+
+        const coreGrad = ctx.createRadialGradient(cx - 10, cy - 12, 4, cx, cy, r - 6);
+        coreGrad.addColorStop(0, '#b9f6ca');
+        coreGrad.addColorStop(0.45, '#00e676');
+        coreGrad.addColorStop(0.85, '#0077c2');
+        coreGrad.addColorStop(1, '#00264d');
+        ctx.fillStyle = coreGrad;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r - 6, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.lineWidth = 2.5;
         ctx.strokeStyle = '#ffffff';
         ctx.stroke();
 
-        // 4. Glowing Angry Sentinel Visor Eyes inside Core
-        ctx.save();
-        ctx.fillStyle = '#ffffff';
-        ctx.shadowColor = coreHex;
-        ctx.shadowBlur = 8;
-        const eyeSpan = isBoss ? 16 : 6;
-        const eyeW = isBoss ? 10 : 5;
-        const eyeH = isBoss ? 5 : 3;
-
+        ctx.fillStyle = 'rgba(255,255,255,0.65)';
         ctx.beginPath();
-        ctx.moveTo(cx - eyeSpan - eyeW, cy - 3);
-        ctx.lineTo(cx - eyeSpan + 1, cy);
-        ctx.lineTo(cx - eyeSpan - 2, cy + eyeH);
-        ctx.closePath();
+        ctx.ellipse(cx - 6, cy - (r - 6) * 0.5, (r - 6) * 0.52, (r - 6) * 0.24, -0.3, 0, Math.PI * 2);
         ctx.fill();
-
-        ctx.beginPath();
-        ctx.moveTo(cx + eyeSpan + eyeW, cy - 3);
-        ctx.lineTo(cx + eyeSpan - 1, cy);
-        ctx.lineTo(cx + eyeSpan + 2, cy + eyeH);
-        ctx.closePath();
-        ctx.fill();
-        ctx.restore();
 
         canvasTex.refresh();
     }
@@ -234,7 +691,6 @@ export class ArtRenderer {
         const cy = size / 2;
         const r = size / 2 - 5;
 
-        // Outer Neon Bloom
         const glow = ctx.createRadialGradient(cx, cy, r * 0.5, cx, cy, r + 5);
         glow.addColorStop(0, rimHex);
         glow.addColorStop(1, 'rgba(0,0,0,0)');
@@ -243,11 +699,11 @@ export class ArtRenderer {
         ctx.arc(cx, cy, r + 5, 0, Math.PI * 2);
         ctx.fill();
 
-        // Hexagonal / Circular Medallion Body
         const grad = ctx.createRadialGradient(cx - 6, cy - 8, 2, cx, cy, r);
-        grad.addColorStop(0, rimHex);
-        grad.addColorStop(0.55, coreHex);
-        grad.addColorStop(1, '#090414');
+        grad.addColorStop(0, '#ffffff');
+        grad.addColorStop(0.25, rimHex);
+        grad.addColorStop(0.68, coreHex);
+        grad.addColorStop(1, '#080314');
 
         ctx.fillStyle = grad;
         ctx.beginPath();
@@ -258,10 +714,9 @@ export class ArtRenderer {
         ctx.strokeStyle = '#ffffff';
         ctx.stroke();
 
-        // Top Glass Specular Shine
-        ctx.fillStyle = 'rgba(255,255,255,0.45)';
+        ctx.fillStyle = 'rgba(255,255,255,0.58)';
         ctx.beginPath();
-        ctx.ellipse(cx, cy - r * 0.48, r * 0.55, r * 0.24, 0, 0, Math.PI * 2);
+        ctx.ellipse(cx - 3, cy - r * 0.48, r * 0.52, r * 0.24, -0.25, 0, Math.PI * 2);
         ctx.fill();
 
         canvasTex.refresh();
@@ -289,22 +744,18 @@ export class ArtRenderer {
         ctx.roundRect(3, 3, w - 6, h - 6, r);
         ctx.fill();
 
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+        ctx.lineWidth = 2.2;
+        ctx.strokeStyle = '#ffffff';
         ctx.stroke();
 
-        // Subtle top sheen
-        ctx.fillStyle = 'rgba(255,255,255,0.32)';
+        ctx.fillStyle = 'rgba(255,255,255,0.38)';
         ctx.beginPath();
-        ctx.roundRect(10, 5, w - 20, (h - 10) * 0.38, r);
+        ctx.roundRect(10, 5, w - 20, (h - 10) * 0.4, r);
         ctx.fill();
 
         canvasTex.refresh();
     }
 
-    /**
-     * Soft Translucent Glass Overlay (NO hard box border or corner rivets!)
-     */
     public static drawOrnatePanel(
         scene: Phaser.Scene,
         x: number,
@@ -316,10 +767,10 @@ export class ArtRenderer {
         borderColor: number = 0x00f5ff
     ): Phaser.GameObjects.Graphics {
         const g = scene.add.graphics();
-        g.fillGradientStyle(topColor, topColor, bottomColor, bottomColor, 0.72);
-        g.fillRoundedRect(x, y, w, h, 22);
-        g.lineStyle(1.2, borderColor, 0.28);
-        g.strokeRoundedRect(x, y, w, h, 22);
+        g.fillGradientStyle(topColor, topColor, bottomColor, bottomColor, 0.84);
+        g.fillRoundedRect(x, y, w, h, 24);
+        g.lineStyle(1.5, borderColor, 0.45);
+        g.strokeRoundedRect(x, y, w, h, 24);
         return g;
     }
 
@@ -340,7 +791,8 @@ export class ArtRenderer {
             color: '#ffffff',
             fontStyle: 'bold',
             stroke: '#05020d',
-            strokeThickness: 4
+            strokeThickness: 4,
+            shadow: { offsetX: 0, offsetY: 2, color: '#000000', blur: 3, fill: true }
         }).setOrigin(0.5);
 
         container.add([bg, txt]);
@@ -369,18 +821,17 @@ export class ArtRenderer {
         const cx = size / 2;
         const cy = size / 2;
 
-        // Circular Holographic Energy Ring (NO square slot boxes!)
         const grad = ctx.createRadialGradient(cx, cy, 8, cx, cy, 28);
         grad.addColorStop(0, 'rgba(15, 8, 34, 0.85)');
-        grad.addColorStop(0.75, isPrimary ? 'rgba(0, 245, 255, 0.25)' : 'rgba(170, 0, 255, 0.18)');
+        grad.addColorStop(0.75, isPrimary ? 'rgba(0, 245, 255, 0.28)' : 'rgba(255, 202, 40, 0.18)');
         grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
         ctx.fillStyle = grad;
         ctx.beginPath();
         ctx.arc(cx, cy, 28, 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.strokeStyle = isPrimary ? '#00f5ff' : 'rgba(255, 202, 40, 0.55)';
-        ctx.lineWidth = isPrimary ? 2.2 : 1.5;
+        ctx.strokeStyle = isPrimary ? '#00f5ff' : 'rgba(255, 202, 40, 0.65)';
+        ctx.lineWidth = isPrimary ? 2.4 : 1.6;
         ctx.beginPath();
         ctx.arc(cx, cy, 24, 0, Math.PI * 2);
         ctx.stroke();
@@ -403,10 +854,10 @@ export class ArtRenderer {
         const r = 23;
 
         const palettes: Record<ElementType, { core: string; mid: string; rim: string; deep: string; glow: string }> = {
-            FIRE: { core: '#fffde7', mid: '#ff6d00', rim: '#ff1744', deep: '#3b0000', glow: 'rgba(255, 110, 0, 0.95)' },
+            FIRE: { core: '#ffffff', mid: '#ff6d00', rim: '#ff1744', deep: '#3b0000', glow: 'rgba(255, 110, 0, 0.95)' },
             ICE: { core: '#ffffff', mid: '#00f5ff', rim: '#0066ff', deep: '#001538', glow: 'rgba(0, 245, 255, 0.95)' },
             LIGHTNING: { core: '#ffffff', mid: '#ff4081', rim: '#aa00ff', deep: '#210038', glow: 'rgba(224, 64, 251, 0.95)' },
-            NATURE: { core: '#f9fbe7', mid: '#00f5a0', rim: '#00a152', deep: '#002610', glow: 'rgba(0, 245, 160, 0.95)' }
+            NATURE: { core: '#ffffff', mid: '#00f5a0', rim: '#00a152', deep: '#002610', glow: 'rgba(0, 245, 160, 0.95)' }
         };
         const pal = palettes[element];
 
@@ -420,8 +871,8 @@ export class ArtRenderer {
 
         const sphereGrad = ctx.createRadialGradient(cx - 6, cy - 8, 2, cx, cy, r);
         sphereGrad.addColorStop(0, pal.core);
-        sphereGrad.addColorStop(0.38, pal.mid);
-        sphereGrad.addColorStop(0.78, pal.rim);
+        sphereGrad.addColorStop(0.35, pal.mid);
+        sphereGrad.addColorStop(0.76, pal.rim);
         sphereGrad.addColorStop(1, pal.deep);
 
         ctx.fillStyle = sphereGrad;
@@ -471,70 +922,70 @@ export class ArtRenderer {
         }
         ctx.restore();
 
-        ctx.lineWidth = tier >= 2 ? 2.5 : 1.8;
-        ctx.strokeStyle = tier >= 3 ? '#ffea00' : tier === 2 ? '#00f5ff' : 'rgba(255,255,255,0.85)';
+        ctx.lineWidth = tier >= 2 ? 2.6 : 2;
+        ctx.strokeStyle = tier >= 3 ? '#ffea00' : tier === 2 ? '#00f5ff' : '#ffffff';
         ctx.beginPath();
         ctx.arc(cx, cy, r, 0, Math.PI * 2);
         ctx.stroke();
 
         const glossGrad = ctx.createLinearGradient(cx - 14, cy - 20, cx, cy - 4);
-        glossGrad.addColorStop(0, 'rgba(255,255,255,0.9)');
+        glossGrad.addColorStop(0, 'rgba(255,255,255,0.95)');
         glossGrad.addColorStop(1, 'rgba(255,255,255,0.0)');
         ctx.fillStyle = glossGrad;
         ctx.beginPath();
-        ctx.ellipse(cx - 6, cy - 11, 10, 5, -0.48, 0, Math.PI * 2);
+        ctx.ellipse(cx - 6, cy - 11, 10.5, 5.2, -0.48, 0, Math.PI * 2);
         ctx.fill();
 
         canvasTex.refresh();
     }
 
-    private static createFuturisticCannonTexture(scene: Phaser.Scene): void {
-        const canvasTex = scene.textures.createCanvas('cannon_turret', 76, 76);
+    private static createClosedChestTexture(scene: Phaser.Scene): void {
+        const w = 220;
+        const h = 175;
+        const canvasTex = scene.textures.createCanvas('victory_chest_closed', w, h);
         if (!canvasTex) return;
         const ctx = canvasTex.getContext();
-        const cx = 38;
-        const cy = 38;
+        const cx = w / 2;
 
-        // Outer Glowing Energy Halo
-        const glow = ctx.createRadialGradient(cx, cy, 8, cx, cy, 34);
-        glow.addColorStop(0, 'rgba(0, 245, 255, 0.6)');
+        const glow = ctx.createRadialGradient(cx, 95, 10, cx, 95, 84);
+        glow.addColorStop(0, 'rgba(255, 202, 40, 0.7)');
         glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
         ctx.fillStyle = glow;
         ctx.beginPath();
-        ctx.arc(cx, cy, 34, 0, Math.PI * 2);
+        ctx.arc(cx, 95, 84, 0, Math.PI * 2);
         ctx.fill();
 
-        // Forward Plasma Wings pointing Right (0 rad)
-        const wingGrad = ctx.createLinearGradient(cx, cy - 16, cx + 34, cy + 16);
-        wingGrad.addColorStop(0, '#ffca28');
-        wingGrad.addColorStop(1, '#00f5ff');
-        ctx.fillStyle = wingGrad;
+        const lidGrad = ctx.createLinearGradient(0, 42, 0, 88);
+        lidGrad.addColorStop(0, '#4a2387');
+        lidGrad.addColorStop(1, '#1d0b3b');
+        ctx.fillStyle = lidGrad;
         ctx.beginPath();
-        ctx.moveTo(cx - 4, cy - 16);
-        ctx.lineTo(cx + 34, cy - 5);
-        ctx.lineTo(cx + 34, cy - 11);
-        ctx.lineTo(cx + 6, cy - 22);
-        ctx.closePath();
+        ctx.roundRect(cx - 76, 44, 152, 44, [22, 22, 4, 4]);
         ctx.fill();
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = '#ffca28';
+        ctx.stroke();
 
+        const baseGrad = ctx.createLinearGradient(0, 86, 0, 156);
+        baseGrad.addColorStop(0, '#2c1359');
+        baseGrad.addColorStop(1, '#0e0521');
+        ctx.fillStyle = baseGrad;
         ctx.beginPath();
-        ctx.moveTo(cx - 4, cy + 16);
-        ctx.lineTo(cx + 34, cy + 5);
-        ctx.lineTo(cx + 34, cy + 11);
-        ctx.lineTo(cx + 6, cy + 22);
-        ctx.closePath();
+        ctx.roundRect(cx - 78, 86, 156, 68, [4, 4, 16, 16]);
         ctx.fill();
+        ctx.lineWidth = 4.5;
+        ctx.strokeStyle = '#ffca28';
+        ctx.stroke();
 
-        // Central Core Orb
-        const coreGrad = ctx.createRadialGradient(cx, cy, 2, cx, cy, 16);
-        coreGrad.addColorStop(0, '#ffffff');
-        coreGrad.addColorStop(0.5, '#00f5ff');
-        coreGrad.addColorStop(1, '#120826');
-        ctx.fillStyle = coreGrad;
+        ctx.fillStyle = '#ffca28';
+        ctx.fillRect(cx - 46, 44, 14, 110);
+        ctx.fillRect(cx + 32, 44, 14, 110);
+
+        ctx.fillStyle = '#00f5ff';
         ctx.beginPath();
-        ctx.arc(cx, cy, 16, 0, Math.PI * 2);
+        ctx.roundRect(cx - 20, 70, 40, 44, 11);
         ctx.fill();
-        ctx.lineWidth = 2.5;
+        ctx.lineWidth = 3;
         ctx.strokeStyle = '#ffffff';
         ctx.stroke();
 
@@ -637,7 +1088,7 @@ export class ArtRenderer {
         if (coinTex) {
             const ctx = coinTex.getContext();
             const grad = ctx.createRadialGradient(9, 8, 2, 12, 12, 10);
-            grad.addColorStop(0, '#fff9c4');
+            grad.addColorStop(0, '#ffffff');
             grad.addColorStop(0.55, '#ffd740');
             grad.addColorStop(1, '#ff6f00');
             ctx.fillStyle = grad;

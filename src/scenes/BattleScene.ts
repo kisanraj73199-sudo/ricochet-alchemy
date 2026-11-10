@@ -4,7 +4,7 @@ import { OrbsConfig, ElementType } from '../config/OrbsConfig';
 import { ArenaPhysics, ArenaBounds, BlockRect, ActiveOrb } from '../gameplay/ArenaPhysics';
 import { ForgeGrid } from '../gameplay/ForgeGrid';
 import { ElementalCombos } from '../gameplay/ElementalCombos';
-import { WaveSpawner, MonsterTrait } from '../gameplay/WaveSpawner';
+import { WaveSpawner, MonsterTrait, PortalCoord } from '../gameplay/WaveSpawner';
 import { SoundSynth } from '../core/SoundSynth';
 import { SaveSystem, PlayerSaveData } from '../core/SaveSystem';
 import { AdService } from '../core/AdService';
@@ -26,6 +26,8 @@ interface FlyingOrb extends ActiveOrb {
   element: ElementType;
   tier: number;
   trail: { x: number; y: number }[];
+  portalCooldown: number;
+  flightSeconds: number;
 }
 
 interface BattleSceneInitData {
@@ -44,9 +46,18 @@ export class BattleScene extends Phaser.Scene {
   private isForgeDrawerOpen = false;
   private aimAngleRad = -Math.PI / 2;
 
-  private gameSpeedMultiplier = 1;
-  private overdriveCharge = 0;
-  private isOverdriveActive = false;
+  private readonly MAX_ORB_FLIGHT_SECONDS = 10.0;
+  private volleyFlightSeconds = 0;
+  private recallCountdownText!: Phaser.GameObjects.Text;
+
+  private missionProgressHits = 0;
+  private missionTargetHits = 15;
+  private hyperBurstState: 'CHARGING' | 'READY' | 'ACTIVATED' | 'USED' = 'CHARGING';
+  private activeVolleyTimeScale = 1.0;
+
+  // Dynamic Multi-Tunnel Wormhole Arrays!
+  private entryPortals: PortalCoord[] = [];
+  private exitPortals: PortalCoord[] = [];
 
   private stageElapsedSeconds = 0;
   private targetBonusSeconds = 45;
@@ -55,12 +66,13 @@ export class BattleScene extends Phaser.Scene {
 
   private trajectoryGraphics!: Phaser.GameObjects.Graphics;
   private orbsGraphics!: Phaser.GameObjects.Graphics;
+  private pedestalSprite!: Phaser.GameObjects.Image;
   private cannonSprite!: Phaser.GameObjects.Image;
   private coinsText!: Phaser.GameObjects.Text;
+  private scoreTickerText!: Phaser.GameObjects.Text;
   private waveBannerText!: Phaser.GameObjects.Text;
-  private overdriveRing!: Phaser.GameObjects.Arc;
-  private overdriveText!: Phaser.GameObjects.Text;
-  private speedMedallionText!: Phaser.GameObjects.Text;
+  private missionRing!: Phaser.GameObjects.Arc;
+  private missionText!: Phaser.GameObjects.Text;
   private statusHintText!: Phaser.GameObjects.Text;
 
   private ammoBeltContainer!: Phaser.GameObjects.Container;
@@ -76,6 +88,7 @@ export class BattleScene extends Phaser.Scene {
   private score = 0;
   private wave = 1;
   private comboCount = 0;
+  private maxVolleyCombo = 0;
 
   constructor() {
     super('BattleScene');
@@ -90,11 +103,22 @@ export class BattleScene extends Phaser.Scene {
     ArtRenderer.generateAllGameTextures(this);
 
     this.saveData = SaveSystem.load();
+    const meta = WaveSpawner.getWaveMetadata(this.wave);
+
     this.isGameOver = false;
     this.isVolleyActive = false;
     this.isForgeDrawerOpen = false;
-    this.overdriveCharge = 0;
-    this.isOverdriveActive = false;
+    this.volleyFlightSeconds = 0;
+    this.missionProgressHits = 0;
+    this.missionTargetHits = meta.missionTargetHits;
+    this.hyperBurstState = 'CHARGING';
+    this.activeVolleyTimeScale = 1.0;
+    this.maxVolleyCombo = 0;
+    this.score = 0;
+
+    this.entryPortals = meta.entryPortals;
+    this.exitPortals = meta.exitPortals;
+
     this.stageElapsedSeconds = 0;
     this.targetBonusSeconds = WaveSpawner.isBossWave(this.wave) ? 60 : 45;
     this.blocks = [];
@@ -106,33 +130,36 @@ export class BattleScene extends Phaser.Scene {
     this.arenaBounds = {
       left: 8,
       right: width - 8,
-      top: 114,
-      bottom: height - 128
+      top: 122,
+      bottom: height - 130
     };
     this.cannonX = width / 2;
-    this.cannonY = this.arenaBounds.bottom - 14;
+    this.cannonY = this.arenaBounds.bottom - 16;
 
-    // 1. SEAMLESS EDGE-TO-EDGE WORLD BACKGROUND
-    this.add.image(width / 2, height / 2, 'world_bg_seamless');
+    // 1. 10-STAGE CHAPTER WORLD THEME BACKGROUND
+    ArtRenderer.drawDynamicBiomeWorld(this, width, height, meta.palette);
 
-    // 2. TOP SAFE BANNER AD STRIP
-    this.add.rectangle(width / 2, topAdBannerHeight / 2, width, topAdBannerHeight, 0x04020a, 0.9);
+    // 2. MULTI-TUNNEL WORMHOLE PORTAL NETWORK
+    this.createWormholePortals();
+
+    // 3. TOP SAFE BANNER AD STRIP
+    this.add.rectangle(width / 2, topAdBannerHeight / 2, width, topAdBannerHeight, 0x04020a, 0.94);
     this.add.text(width / 2, topAdBannerHeight / 2, 'ADMOB TOP BANNER AD (SAFE ZONE)', {
       fontFamily: "'Orbitron', sans-serif",
       fontSize: '9.5px',
       color: '#00f5ff'
     }).setOrigin(0.5);
 
-    // 3. FLOATING TOP HUD + SPEED-BONUS COUNTDOWN BAR
-    this.createFloatingHud(width);
+    // 4. LUXURY ESPORTS SCOREBOARD CREST HUD
+    this.createLuxuryScoreboardHud(width);
 
-    // 4. FLOATING BOTTOM COMBAT DECK & AMMO BELT
+    // 5. ROYAL DRAGON-PHOENIX LAUNCHER PEDESTAL & BOTTOM DECK
     this.createBottomCombatDeck(width, height);
 
-    // 5. SLIDE-UP HOLOGRAPHIC FORGE DRAWER
+    // 6. SLIDE-UP HOLOGRAPHIC FORGE DRAWER
     this.createSlideUpForgeDrawer(height);
 
-    // 6. GRAPHICS LAYERS
+    // 7. GRAPHICS LAYERS
     this.trajectoryGraphics = this.add.graphics();
     this.orbsGraphics = this.add.graphics();
 
@@ -140,42 +167,96 @@ export class BattleScene extends Phaser.Scene {
     this.setupInputHandlers();
   }
 
-  private createFloatingHud(width: number): void {
-    this.add.rectangle(64, 76, 104, 28, 0x0e0720, 0.75).setStrokeStyle(1, 0x00f5ff, 0.4);
-    this.add.image(26, 76, 'icon_coin').setScale(0.95);
-    this.coinsText = this.add.text(42, 76, '', {
+  private createWormholePortals(): void {
+    this.entryPortals.forEach((pt, idx) => {
+      const entrySprite = this.add.image(pt.x, pt.y, 'portal_BLUE').setScale(0.84);
+      this.add.text(pt.x, pt.y + 28, `🌀 IN ${idx + 1}`, {
+        fontFamily: "'Orbitron', sans-serif",
+        fontSize: '7.5px',
+        color: '#00f5ff',
+        fontStyle: 'bold',
+        stroke: '#000000',
+        strokeThickness: 3
+      }).setOrigin(0.5);
+
+      this.tweens.add({
+        targets: entrySprite,
+        angle: 360,
+        duration: 3000,
+        repeat: -1
+      });
+    });
+
+    this.exitPortals.forEach((pt, idx) => {
+      const exitSprite = this.add.image(pt.x, pt.y, 'portal_ORANGE').setScale(0.84);
+      this.add.text(pt.x, pt.y + 28, `🌀 OUT ${idx + 1}`, {
+        fontFamily: "'Orbitron', sans-serif",
+        fontSize: '7.5px',
+        color: '#ffea00',
+        fontStyle: 'bold',
+        stroke: '#000000',
+        strokeThickness: 3
+      }).setOrigin(0.5);
+
+      this.tweens.add({
+        targets: exitSprite,
+        angle: -360,
+        duration: 3000,
+        repeat: -1
+      });
+    });
+  }
+
+  private createLuxuryScoreboardHud(width: number): void {
+    this.add.image(width / 2, 86, 'scoreboard_crest');
+
+    this.add.image(28, 78, 'icon_coin').setScale(1.0);
+    this.coinsText = this.add.text(44, 78, '', {
       fontFamily: "'Orbitron', sans-serif",
-      fontSize: '12px',
+      fontSize: '12.5px',
       color: '#ffea00',
-      fontStyle: 'bold'
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 4,
+      shadow: { offsetX: 0, offsetY: 2, color: '#000000', blur: 3, fill: true }
     }).setOrigin(0, 0.5);
 
     this.waveBannerText = this.add.text(width / 2, 66, '', {
       fontFamily: "'Orbitron', sans-serif",
-      fontSize: '11.5px',
-      color: '#ffffff',
+      fontSize: '9.5px',
+      color: '#00f5ff',
       fontStyle: 'bold',
       stroke: '#000000',
-      strokeThickness: 4
+      strokeThickness: 3
     }).setOrigin(0.5);
 
-    const barW = 156;
-    this.add.rectangle(width / 2, 85, barW, 8, 0x090414, 0.9).setStrokeStyle(1, 0xffca28);
-    this.bonusTimerBarFill = this.add.rectangle(width / 2 - barW / 2 + 1, 85, barW - 2, 6, 0x00f5a0).setOrigin(0, 0.5);
-
-    this.bonusTimerText = this.add.text(width / 2, 101, '', {
+    this.scoreTickerText = this.add.text(width / 2, 83, 'SCORE 000,000', {
       fontFamily: "'Orbitron', sans-serif",
-      fontSize: '9.5px',
+      fontSize: '14px',
+      color: '#ffffff',
+      fontStyle: 'bold',
+      stroke: '#160936',
+      strokeThickness: 4,
+      shadow: { offsetX: 0, offsetY: 2, color: '#00f5ff', blur: 4, fill: true }
+    }).setOrigin(0.5);
+
+    const barW = 152;
+    this.add.rectangle(width / 2, 100, barW, 6, 0x05020c, 0.95).setStrokeStyle(1, 0xffca28);
+    this.bonusTimerBarFill = this.add.rectangle(width / 2 - barW / 2 + 1, 100, barW - 2, 4, 0x00f5a0).setOrigin(0, 0.5);
+
+    this.bonusTimerText = this.add.text(width / 2, 112, '', {
+      fontFamily: "'Orbitron', sans-serif",
+      fontSize: '8.5px',
       color: '#00f5a0',
       fontStyle: 'bold',
       stroke: '#000000',
       strokeThickness: 3
     }).setOrigin(0.5);
 
-    const mapIcon = this.add.image(width - 34, 78, 'medallion_MAGENTA').setScale(0.68).setInteractive({ useHandCursor: true });
-    this.add.text(width - 34, 78, '🗺️\nMAP', {
+    const mapIcon = this.add.image(width - 36, 80, 'medallion_MAGENTA').setScale(0.66).setInteractive({ useHandCursor: true });
+    this.add.text(width - 36, 80, '🗺️\nMAP', {
       fontFamily: "'Orbitron', sans-serif",
-      fontSize: '8.5px',
+      fontSize: '8px',
       color: '#ffffff',
       align: 'center',
       fontStyle: 'bold'
@@ -186,14 +267,33 @@ export class BattleScene extends Phaser.Scene {
   private createBottomCombatDeck(width: number, height: number): void {
     const line = this.add.graphics();
     line.lineStyle(1.5, 0xff0055, 0.35);
-    line.lineBetween(16, this.cannonY - 22, width - 16, this.cannonY - 22);
+    line.lineBetween(16, this.cannonY - 26, width - 16, this.cannonY - 26);
+
+    this.pedestalSprite = this.add.image(this.cannonX, this.cannonY, 'cannon_pedestal_ring')
+      .setScale(0.88)
+      .setAlpha(0.92);
+    this.tweens.add({
+      targets: this.pedestalSprite,
+      angle: 360,
+      duration: 9000,
+      repeat: -1
+    });
 
     this.cannonSprite = this.add.image(this.cannonX, this.cannonY, 'cannon_turret')
       .setRotation(-Math.PI / 2);
 
-    this.statusHintText = this.add.text(width / 2, this.cannonY - 46, 'HIT 💣 BOMBS & 🧱 BUMPER WALLS FOR PINBALL CHAOS!', {
+    this.recallCountdownText = this.add.text(this.cannonX, this.cannonY - 42, '', {
       fontFamily: "'Orbitron', sans-serif",
-      fontSize: '9px',
+      fontSize: '9.5px',
+      color: '#ffea00',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 4
+    }).setOrigin(0.5).setVisible(false);
+
+    this.statusHintText = this.add.text(width / 2, this.cannonY - 48, 'HIT 💎 2X/3X PRISMS & 🌀 TUNNELS • AVOID ☠️ TRAPS!', {
+      fontFamily: "'Orbitron', sans-serif",
+      fontSize: '8.5px',
       color: '#00f5ff',
       fontStyle: 'bold',
       stroke: '#000000',
@@ -203,13 +303,13 @@ export class BattleScene extends Phaser.Scene {
     this.ammoBeltContainer = this.add.container(0, 0);
     this.renderCompactAmmoBelt();
 
-    const odX = 44;
-    const odY = height - 64;
-    this.add.image(odX, odY, 'medallion_GOLD').setScale(0.86);
-    this.overdriveRing = this.add.circle(odX, odY, 26, 0x00f5a0, 0.2).setStrokeStyle(2.5, 0xffea00);
-    this.overdriveText = this.add.text(odX, odY, '⚡\n0%', {
+    const msX = 48;
+    const msY = height - 64;
+    const msBtn = this.add.image(msX, msY, 'medallion_GOLD').setScale(0.92).setInteractive({ useHandCursor: true });
+    this.missionRing = this.add.circle(msX, msY, 28, 0x00f5a0, 0.18).setStrokeStyle(2.5, 0xffea00);
+    this.missionText = this.add.text(msX, msY, `🎯\n0/${this.missionTargetHits}`, {
       fontFamily: "'Orbitron', sans-serif",
-      fontSize: '9.5px',
+      fontSize: '9px',
       color: '#ffffff',
       align: 'center',
       fontStyle: 'bold',
@@ -217,23 +317,20 @@ export class BattleScene extends Phaser.Scene {
       strokeThickness: 3
     }).setOrigin(0.5);
 
-    // 1X -> 2X -> 3X Turbo Speed Toggle!
-    const spdIcon = this.add.image(44, height - 128, 'medallion_CYAN').setScale(0.68).setInteractive({ useHandCursor: true });
-    this.speedMedallionText = this.add.text(44, height - 128, '1X\nSPD', {
-      fontFamily: "'Orbitron', sans-serif",
-      fontSize: '8.5px',
-      color: '#ffffff',
-      align: 'center',
-      fontStyle: 'bold'
-    }).setOrigin(0.5);
-    spdIcon.on('pointerdown', () => {
-      this.gameSpeedMultiplier = this.gameSpeedMultiplier === 1 ? 2 : this.gameSpeedMultiplier === 2 ? 3 : 1;
-      this.speedMedallionText.setText(`${this.gameSpeedMultiplier}X\nSPD`);
-      this.speedMedallionText.setColor(this.gameSpeedMultiplier > 1 ? '#ffea00' : '#ffffff');
-      SoundSynth.playBounceChime(6);
+    msBtn.on('pointerdown', () => {
+      if (this.hyperBurstState === 'READY' && !this.isVolleyActive) {
+        this.hyperBurstState = 'ACTIVATED';
+        SoundSynth.playUpgradeFanfare();
+        this.missionText.setText('🔥\nARMED!');
+        this.missionText.setColor('#00f5a0');
+        this.missionRing.setStrokeStyle(3.5, 0x00f5a0);
+        this.showPopupBanner(width / 2, this.cannonY - 68, '⚡ ONE-TIME HYPER BURST ARMED FOR NEXT SHOT! ⚡', '#00f5a0');
+      } else if (this.hyperBurstState === 'CHARGING') {
+        this.showPopupBanner(msX + 45, msY - 36, `HIT ${this.missionTargetHits - this.missionProgressHits} MORE GEMS!`, '#ffea00');
+      }
     });
 
-    const forgeBtnX = width - 44;
+    const forgeBtnX = width - 48;
     const forgeBtnY = height - 64;
     const forgeMedallion = this.add.image(forgeBtnX, forgeBtnY, 'medallion_GREEN')
       .setScale(0.92)
@@ -254,15 +351,31 @@ export class BattleScene extends Phaser.Scene {
     });
   }
 
+  private advanceMissionProgress(steps: number): void {
+    if (this.hyperBurstState !== 'CHARGING') return;
+    this.missionProgressHits = Math.min(this.missionTargetHits, this.missionProgressHits + steps);
+
+    if (this.missionProgressHits >= this.missionTargetHits) {
+      this.hyperBurstState = 'READY';
+      SoundSynth.playUpgradeFanfare();
+      this.missionText.setText('⚡ TAP\nBURST!');
+      this.missionText.setColor('#ffea00');
+      this.missionRing.setStrokeStyle(3.5, 0x00f5ff);
+      this.showPopupBanner(ThemeConfig.screen.width / 2, this.cannonY - 68, '🎯 MISSION COMPLETE! TAP ⚡ BURST ICON!', '#ffea00');
+    } else {
+      this.missionText.setText(`🎯\n${this.missionProgressHits}/${this.missionTargetHits}`);
+    }
+  }
+
   private renderCompactAmmoBelt(): void {
     this.ammoBeltContainer.removeAll(true);
     const { width, height } = ThemeConfig.screen;
     const dmgMult = this.getDamageMultiplier();
     const beltY = height - 58;
 
-    const label = this.add.text(width / 2, beltY - 34, 'ACTIVE VOLLEY AMMO', {
+    const label = this.add.text(width / 2, beltY - 34, 'DRAGON-FORGE AMMO QUEUE', {
       fontFamily: "'Orbitron', sans-serif",
-      fontSize: '8.5px',
+      fontSize: '8px',
       color: '#00f5ff',
       fontStyle: 'bold'
     }).setOrigin(0.5);
@@ -279,11 +392,11 @@ export class BattleScene extends Phaser.Scene {
         const orb = this.add.image(sx, beltY, `orb_${cfg.element}_${cfg.tier}`).setScale(0.58);
         const dmgTxt = this.add.text(sx, beltY + 18, `${Math.round(cfg.baseDamage * dmgMult)}`, {
           fontFamily: "'Orbitron', sans-serif",
-          fontSize: '8.5px',
+          fontSize: '9px',
           color: '#ffea00',
           fontStyle: 'bold',
           stroke: '#000000',
-          strokeThickness: 3
+          strokeThickness: 3.5
         }).setOrigin(0.5);
         this.ammoBeltContainer.add([orb, dmgTxt]);
       }
@@ -426,19 +539,6 @@ export class BattleScene extends Phaser.Scene {
     this.forgeDrawerContainer.add([craftBtn, adBtn]);
   }
 
-  private addOverdriveCharge(amount: number): void {
-    if (this.isOverdriveActive) return;
-    this.overdriveCharge = Math.min(100, this.overdriveCharge + amount);
-    if (this.overdriveCharge >= 100) {
-      this.isOverdriveActive = true;
-      this.overdriveText.setText('MAX\n2X!');
-      this.overdriveText.setColor('#00f5a0');
-      this.overdriveRing.setStrokeStyle(3.5, 0x00f5a0);
-    } else {
-      this.overdriveText.setText(`⚡\n${Math.round(this.overdriveCharge)}%`);
-    }
-  }
-
   private getDamageMultiplier(): number {
     const lvl = this.saveData.grimoireLevels.volatileMix || 1;
     return 1 + (lvl - 1) * 0.15;
@@ -456,21 +556,27 @@ export class BattleScene extends Phaser.Scene {
     rawBlocks.forEach((item, idx) => {
       const isBoss = item.archetype.isBoss;
       const isWall = item.trait === 'WALL';
+      const isBomb = item.trait === 'BOMB';
+      const isPrism2X = item.trait === 'PRISM';
+      const isPrism3X = item.trait === 'PRISM_3X';
       const container = this.add.container(item.data.x, item.data.y);
 
       if (isWall) {
-        // Glowing Cyber-Bumper Wall Obstacle (Deflects orbs like a pinball bumper!)
-        const wallGlow = this.add.rectangle(0, 0, item.data.width + 6, item.data.height + 6, 0x00f5ff, 0.28);
-        const wallBar = this.add.rectangle(0, 0, item.data.width, item.data.height, 0x120829)
+        const wallGlow = this.add.rectangle(0, 0, item.data.width + 6, item.data.height + 6, 0x00f5ff, 0.32);
+        const wallBar = this.add.rectangle(0, 0, item.data.width, item.data.height, 0x14082e)
           .setStrokeStyle(2.5, 0x00f5ff);
-        const wallLabel = this.add.text(0, 0, '⚡ BUMPER ⚡', {
-          fontFamily: "'Orbitron', sans-serif",
-          fontSize: '7.5px',
-          color: '#00f5ff',
-          fontStyle: 'bold'
-        }).setOrigin(0.5);
 
-        container.add([wallGlow, wallBar, wallLabel]);
+        const isVert = item.data.height > item.data.width;
+        const coreLine = this.add.rectangle(
+          0,
+          0,
+          isVert ? 4 : item.data.width - 12,
+          isVert ? item.data.height - 12 : 4,
+          0xffca28,
+          0.9
+        );
+
+        container.add([wallGlow, wallBar, coreLine]);
         this.blocks.push({
           data: item.data,
           trait: 'WALL',
@@ -487,37 +593,74 @@ export class BattleScene extends Phaser.Scene {
 
       const sprite = this.add.image(0, 0, item.texKey);
 
+      if (isBomb || isPrism2X || isPrism3X) {
+        const tagStr = isBomb ? '☠️ TRAP' : isPrism3X ? '🔥 3X SPLIT' : '💎 2X SPLIT';
+        const tagColor = isBomb ? '#ff1744' : isPrism3X ? '#ff007f' : '#00f5ff';
+        const pillBg = this.add.image(0, -item.data.height / 2 - 9, 'hp_pill_badge');
+        const specialText = this.add.text(0, -item.data.height / 2 - 9, tagStr, {
+          fontFamily: "'Orbitron', sans-serif",
+          fontSize: '8px',
+          color: tagColor,
+          fontStyle: 'bold',
+          stroke: '#000000',
+          strokeThickness: 3
+        }).setOrigin(0.5);
+
+        container.add([sprite, pillBg, specialText]);
+
+        this.tweens.add({
+          targets: sprite,
+          angle: isBomb ? 360 : -360,
+          duration: isBomb ? 5000 : 3400,
+          repeat: -1
+        });
+
+        this.blocks.push({
+          data: item.data,
+          trait: item.trait,
+          shieldHp: 0,
+          container,
+          sprite,
+          shieldRing: null,
+          hpBarFill: null,
+          hpText: specialText,
+          lastElement: null
+        });
+        return;
+      }
+
       let shieldRing: Phaser.GameObjects.Arc | null = null;
       if (item.shieldHp > 0) {
-        shieldRing = this.add.circle(0, 0, isBoss ? 48 : 28, 0x00f5ff, 0.15)
-          .setStrokeStyle(2, 0x00f5ff);
+        shieldRing = this.add.circle(0, 0, isBoss ? 52 : 27, 0x00f5ff, 0.18)
+          .setStrokeStyle(2.2, 0x00f5ff);
       }
 
       const barWidth = isBoss ? 110 : 38;
-      const barY = -item.data.height / 2 - 8;
-      const hpBg = this.add.rectangle(0, barY, barWidth, 5, 0x05020c, 0.85);
-      const hpBarFill = this.add.rectangle(-barWidth / 2, barY, barWidth, 5, item.trait === 'BOMB' ? 0xffea00 : 0xff0055)
+      const barY = -item.data.height / 2 - 4;
+      const hpBg = this.add.rectangle(0, barY, barWidth, 5, 0x05020c, 0.9);
+      const hpBarFill = this.add.rectangle(-barWidth / 2, barY, barWidth, 5, 0x00f5a0)
         .setOrigin(0, 0.5);
 
-      const badgePrefix = item.trait === 'BOMB' ? '💣 ' : item.trait === 'HEALER' ? '✨ ' : '';
-      const hpText = this.add.text(0, barY - 9, `${badgePrefix}${item.data.hp}`, {
+      // Sleek 3D Bevelled Number Badge for Bubble HP!
+      const pillBadge = this.add.image(0, barY - 11, 'hp_pill_badge').setScale(isBoss ? 1.25 : 0.92);
+      const badgePrefix = item.trait === 'HEALER' ? '✨' : '';
+      const hpText = this.add.text(0, barY - 11, `${badgePrefix}${item.data.hp}`, {
         fontFamily: "'Orbitron', sans-serif",
-        fontSize: isBoss ? '12px' : '9.5px',
-        color: '#ffffff',
+        fontSize: isBoss ? '11.5px' : '9.5px',
+        color: '#ffea00',
         fontStyle: 'bold',
         stroke: '#000000',
         strokeThickness: 3.5
       }).setOrigin(0.5);
 
       if (shieldRing) container.add(shieldRing);
-      container.add([sprite, hpBg, hpBarFill, hpText]);
+      container.add([sprite, hpBg, hpBarFill, pillBadge, hpText]);
 
       this.tweens.add({
         targets: sprite,
-        scaleX: 1.07,
-        scaleY: 0.94,
-        angle: idx % 2 === 0 ? 5 : -5,
-        duration: 950 + (idx % 4) * 160,
+        scaleX: 1.06,
+        scaleY: 0.95,
+        duration: 900 + (idx % 4) * 160,
         yoyo: true,
         repeat: -1
       });
@@ -605,7 +748,7 @@ export class BattleScene extends Phaser.Scene {
             const pt = this.slotCenters[targetIdx];
             this.spawnShatterParticles(pt.x, pt.y, newOrb.color, 14);
             this.showPopupBanner(pt.x, pt.y - 24, `MERGED: ${newOrb.name}!`, '#00f5a0');
-            this.addOverdriveCharge(20);
+            this.advanceMissionProgress(5);
           }
           SaveSystem.save(this.saveData);
           this.renderForgeGrid();
@@ -634,9 +777,10 @@ export class BattleScene extends Phaser.Scene {
 
     const pts = ArenaPhysics.computeTrajectoryPoints(this.cannonX, this.cannonY, this.aimAngleRad, this.arenaBounds, 18, 34);
     this.trajectoryGraphics.clear();
+    const isArmed = this.hyperBurstState === 'ACTIVATED';
     for (let i = 0; i < pts.length; i++) {
       const alpha = 1 - (i / pts.length) * 0.65;
-      this.trajectoryGraphics.fillStyle(this.isOverdriveActive ? 0x00f5a0 : 0x00f5ff, alpha * 0.5);
+      this.trajectoryGraphics.fillStyle(isArmed ? 0x00f5a0 : 0x00f5ff, alpha * 0.55);
       this.trajectoryGraphics.fillCircle(pts[i].x, pts[i].y, 6);
       this.trajectoryGraphics.fillStyle(0xffffff, alpha);
       this.trajectoryGraphics.fillCircle(pts[i].x, pts[i].y, 2.8);
@@ -645,34 +789,53 @@ export class BattleScene extends Phaser.Scene {
 
   private fireElementalVolley(): void {
     this.isVolleyActive = true;
+    this.volleyFlightSeconds = 0;
     this.comboCount = 0;
     this.statusHintText.setVisible(false);
+    this.recallCountdownText.setVisible(true);
 
     const queue = ForgeGrid.extractFiringQueue(this.saveData.gridRunes);
-    const overdriveMult = this.isOverdriveActive ? 2.0 : 1.0;
-    const dmgMult = this.getDamageMultiplier() * overdriveMult;
-    // High-Velocity Orbs (680 px/s normal, 820 px/s overdrive) so combat feels snappy & thrilling!
-    const speed = this.isOverdriveActive ? 820 : 680;
+    const isOneTimeBurst = this.hyperBurstState === 'ACTIVATED';
+    this.activeVolleyTimeScale = isOneTimeBurst ? 1.85 : 1.0;
 
-    if (this.isOverdriveActive) {
-      this.cameras.main.shake(180, 0.008);
-      this.showPopupBanner(this.cannonX, this.cannonY - 56, '🔥 2X OVERDRIVE UNLEASHED! 🔥', '#00f5a0');
-      this.isOverdriveActive = false;
-      this.overdriveCharge = 0;
-      this.overdriveText.setText('⚡\n0%');
-      this.overdriveText.setColor('#ffffff');
-      this.overdriveRing.setStrokeStyle(2.5, 0xffea00);
+    const burstDmgMult = isOneTimeBurst ? 2.2 : 1.0;
+    const dmgMult = this.getDamageMultiplier() * burstDmgMult;
+    const speed = 640;
+
+    if (isOneTimeBurst) {
+      this.cameras.main.shake(200, 0.009);
+      this.showPopupBanner(this.cannonX, this.cannonY - 56, '⚡ ONE-TIME HYPER BURST UNLEASHED! (2.2X DMG) ⚡', '#00f5a0');
+      this.hyperBurstState = 'USED';
+      this.missionText.setText('✓\nUSED');
+      this.missionText.setColor('#90a4ae');
+      this.missionRing.setStrokeStyle(2, 0x546e7a);
     }
 
     queue.forEach((orbCfg, index) => {
-      this.time.delayedCall((index * 75) / this.gameSpeedMultiplier, () => {
-        const sprite = this.add.image(this.cannonX, this.cannonY - 8, `orb_${orbCfg.element}_${orbCfg.tier}`)
+      this.time.delayedCall((index * 80) / this.activeVolleyTimeScale, () => {
+        if (!this.isVolleyActive) return;
+
+        const muzzleX = this.cannonX + Math.cos(this.aimAngleRad) * 28;
+        const muzzleY = this.cannonY + Math.sin(this.aimAngleRad) * 28;
+        this.spawnShatterParticles(muzzleX, muzzleY, orbCfg.color, 6);
+
+        this.tweens.add({
+          targets: this.cannonSprite,
+          x: this.cannonX - Math.cos(this.aimAngleRad) * 6,
+          y: this.cannonY - Math.sin(this.aimAngleRad) * 6,
+          scaleX: 1.12,
+          scaleY: 0.9,
+          duration: 45,
+          yoyo: true
+        });
+
+        const sprite = this.add.image(muzzleX, muzzleY, `orb_${orbCfg.element}_${orbCfg.tier}`)
           .setScale(0.48 + orbCfg.tier * 0.04);
         this.orbSprites.push(sprite);
 
         this.activeOrbs.push({
-          x: this.cannonX,
-          y: this.cannonY - 8,
+          x: muzzleX,
+          y: muzzleY,
           vx: Math.cos(this.aimAngleRad) * speed,
           vy: Math.sin(this.aimAngleRad) * speed,
           radius: 10 + orbCfg.tier,
@@ -681,6 +844,8 @@ export class BattleScene extends Phaser.Scene {
           element: orbCfg.element,
           tier: orbCfg.tier,
           trail: [],
+          portalCooldown: 0,
+          flightSeconds: 0,
           active: true
         });
         SoundSynth.playBounceChime(1);
@@ -698,13 +863,14 @@ export class BattleScene extends Phaser.Scene {
     }
 
     const meta = WaveSpawner.getWaveMetadata(this.wave);
-    const dt = Math.min(delta / 1000, 0.025) * this.gameSpeedMultiplier;
+    const dt = Math.min(delta / 1000, 0.025) * (this.isVolleyActive ? this.activeVolleyTimeScale : 1.0);
 
     for (const block of this.blocks) {
-      // Only monsters descend; Bumper Walls stay fixed in place!
-      if (block.trait === 'WALL') continue;
+      if (block.trait === 'WALL' || block.trait === 'BOMB' || block.trait === 'PRISM' || block.trait === 'PRISM_3X') {
+        continue;
+      }
 
-      block.data.y += meta.descentSpeed * dt;
+      block.data.y += meta.descentSpeed * realDt;
       block.container.y = block.data.y;
 
       if (block.data.y + block.data.height / 2 >= this.cannonY - 22) {
@@ -715,14 +881,53 @@ export class BattleScene extends Phaser.Scene {
 
     if (!this.isVolleyActive) return;
 
+    this.volleyFlightSeconds += realDt;
+    const remVolley = Math.max(0, this.MAX_ORB_FLIGHT_SECONDS - this.volleyFlightSeconds);
+    if (remVolley <= 5.0) {
+      this.recallCountdownText.setText(`⚡ AUTO-RECALL IN ${remVolley.toFixed(1)}s`);
+      this.recallCountdownText.setColor(remVolley <= 2.0 ? '#ff4081' : '#ffea00');
+    } else {
+      this.recallCountdownText.setText('');
+    }
+
     this.orbsGraphics.clear();
     const activeBlockData = this.blocks.map((b) => b.data);
 
-    this.activeOrbs.forEach((orb, idx) => {
+    for (let idx = 0; idx < this.activeOrbs.length; idx++) {
+      const orb = this.activeOrbs[idx];
       const sprite = this.orbSprites[idx];
       if (!orb.active) {
         if (sprite) sprite.setVisible(false);
-        return;
+        continue;
+      }
+
+      orb.flightSeconds += realDt;
+      if (orb.flightSeconds >= this.MAX_ORB_FLIGHT_SECONDS || this.volleyFlightSeconds >= this.MAX_ORB_FLIGHT_SECONDS + 0.5) {
+        orb.active = false;
+        if (sprite) sprite.setVisible(false);
+        this.spawnShatterParticles(orb.x, orb.y, orb.color, 10);
+        SoundSynth.playBounceChime(6);
+        continue;
+      }
+
+      if (orb.portalCooldown > 0) orb.portalCooldown -= realDt;
+
+      // MULTI-TUNNEL WORMHOLE TELEPORT CHECK: Checks all Entry Tunnels and teleports to a random Exit Tunnel!
+      if (orb.portalCooldown <= 0 && this.exitPortals.length > 0) {
+        for (const entryPt of this.entryPortals) {
+          const distToEntry = Phaser.Math.Distance.Between(orb.x, orb.y, entryPt.x, entryPt.y);
+          if (distToEntry <= 26) {
+            const chosenExit = this.exitPortals[Math.floor(Math.random() * this.exitPortals.length)];
+            orb.x = chosenExit.x;
+            orb.y = chosenExit.y;
+            orb.vy = Math.abs(orb.vy) * 0.95;
+            orb.portalCooldown = 1.1;
+            orb.trail = [];
+            SoundSynth.playUpgradeFanfare();
+            this.spawnShatterParticles(chosenExit.x, chosenExit.y, 0xffea00, 10);
+            break;
+          }
+        }
       }
 
       orb.trail.push({ x: orb.x, y: orb.y });
@@ -736,9 +941,10 @@ export class BattleScene extends Phaser.Scene {
 
       if (res.hitBlockId) {
         this.comboCount++;
+        this.maxVolleyCombo = Math.max(this.maxVolleyCombo, this.comboCount);
         SoundSynth.playBounceChime(this.comboCount);
-        this.addOverdriveCharge(5);
-        this.applyBlockDamage(res.hitBlockId, orb.damage, orb.element, res.hitX, res.hitY);
+        this.checkComboStreakAnnouncement(this.comboCount);
+        this.applyBlockInteraction(orb, res.hitBlockId, res.hitX, res.hitY);
       }
 
       for (let t = 0; t < orb.trail.length; t++) {
@@ -748,29 +954,44 @@ export class BattleScene extends Phaser.Scene {
         this.orbsGraphics.fillCircle(pt.x, pt.y, orb.radius * ratio * 0.9);
       }
 
-      if (sprite) {
+      if (sprite && orb.active) {
         sprite.setPosition(orb.x, orb.y);
-        sprite.rotation += 0.22;
+        sprite.rotation += 0.2;
       }
-    });
+    }
 
     if (this.activeOrbs.length > 0 && this.activeOrbs.every((o) => !o.active)) {
       this.orbSprites.forEach((s) => s.destroy());
       this.orbSprites = [];
       this.activeOrbs = [];
       this.orbsGraphics.clear();
+      this.activeVolleyTimeScale = 1.0;
       this.isVolleyActive = false;
+      this.recallCountdownText.setVisible(false);
       this.onVolleyComplete();
+    }
+  }
+
+  private checkComboStreakAnnouncement(combo: number): void {
+    const cx = ThemeConfig.screen.width / 2;
+    if (combo === 12) {
+      this.showPopupBanner(cx, 220, '🔥 12x SUPER COMBO! 🔥', '#00f5ff');
+    } else if (combo === 25) {
+      this.cameras.main.shake(120, 0.005);
+      this.showPopupBanner(cx, 210, '⚡ 25x ULTRA STREAK! ⚡', '#ffea00');
+    } else if (combo === 40) {
+      this.cameras.main.shake(180, 0.008);
+      this.showPopupBanner(cx, 200, '👑 40x GODLIKE RICHOCHET! 👑', '#00f5a0');
     }
   }
 
   private updateSpeedBonusTimerUI(): void {
     const remaining = Math.max(0, this.targetBonusSeconds - this.stageElapsedSeconds);
     const ratio = remaining / this.targetBonusSeconds;
-    this.bonusTimerBarFill.width = Math.max(2, ratio * 154);
+    this.bonusTimerBarFill.width = Math.max(2, ratio * 150);
 
     if (remaining > 0) {
-      this.bonusTimerText.setText(`⏱️ 3★ SPEED BONUS: ${remaining.toFixed(1)}s (+50G)`);
+      this.bonusTimerText.setText(`⏱️ 3★ BONUS: ${remaining.toFixed(1)}s (+50G)`);
       this.bonusTimerText.setColor(remaining > 12 ? '#00f5a0' : '#ffea00');
       this.bonusTimerBarFill.setFillStyle(remaining > 12 ? 0x00f5a0 : 0xffea00);
     } else {
@@ -780,30 +1001,89 @@ export class BattleScene extends Phaser.Scene {
     }
   }
 
-  private applyBlockDamage(blockId: string, baseDmg: number, hitElement: ElementType, hitX: number, hitY: number): void {
+  private applyBlockInteraction(orb: FlyingOrb, blockId: string, hitX: number, hitY: number): void {
     const target = this.blocks.find((b) => b.data.id === blockId);
     if (!target || target.data.hp <= 0) return;
 
-    // BUMPER WALL OBSTACLE: Indestructible pinball deflector!
     if (target.trait === 'WALL') {
       this.spawnShatterParticles(hitX, hitY, 0x00f5ff, 6);
       return;
     }
 
-    let finalDamage = baseDmg;
+    // 2X OR 3X MULTIBALL SPLIT-PRISM ('PRISM' / 'PRISM_3X')
+    if (target.trait === 'PRISM' || target.trait === 'PRISM_3X') {
+      const isTriple = target.trait === 'PRISM_3X';
+      SoundSynth.playUpgradeFanfare();
+      this.spawnShatterParticles(target.data.x, target.data.y, isTriple ? 0xff007f : 0x00f5ff, 22);
+      this.showPopupBanner(
+        target.data.x,
+        target.data.y - 22,
+        isTriple ? '🔥 3X JACKPOT PRISM! +3 CLONES! 🔥' : '💎 2X PRISM! +2 CLONES! 💎',
+        isTriple ? '#ffea00' : '#00f5ff'
+      );
+
+      const speed = Math.hypot(orb.vx, orb.vy) || 640;
+      const offsets = isTriple ? [-0.65, 0, 0.65] : [-0.55, 0.55];
+
+      offsets.forEach((angleOffset) => {
+        const baseAngle = Math.atan2(orb.vy, orb.vx) + angleOffset;
+        const cloneSprite = this.add.image(target.data.x, target.data.y, `orb_${orb.element}_${orb.tier}`)
+          .setScale(0.46 + orb.tier * 0.04);
+        this.orbSprites.push(cloneSprite);
+
+        this.activeOrbs.push({
+          x: target.data.x,
+          y: target.data.y,
+          vx: Math.cos(baseAngle) * speed,
+          vy: Math.sin(baseAngle) * speed,
+          radius: orb.radius,
+          damage: orb.damage,
+          color: orb.color,
+          element: orb.element,
+          tier: orb.tier,
+          trail: [],
+          portalCooldown: 0.4,
+          flightSeconds: orb.flightSeconds,
+          active: true
+        });
+      });
+
+      target.data.hp = 0;
+      target.container.destroy();
+      this.blocks = this.blocks.filter((b) => b.data.id !== blockId);
+      return;
+    }
+
+    if (target.trait === 'BOMB') {
+      orb.active = false;
+      this.stageElapsedSeconds += 6;
+      SoundSynth.playShatterSound();
+      this.cameras.main.shake(220, 0.013);
+      this.spawnShatterParticles(target.data.x, target.data.y, 0xff1744, 22);
+      this.showPopupBanner(target.data.x, target.data.y - 20, '☠️ HAZARD TRAP! ORB LOST & -6s TIME!', '#ff1744');
+
+      target.data.hp = 0;
+      target.container.destroy();
+      this.blocks = this.blocks.filter((b) => b.data.id !== blockId);
+      return;
+    }
+
+    this.advanceMissionProgress(1);
+
+    let finalDamage = orb.damage;
     const coreLvl = this.saveData.grimoireLevels.empoweredCore || 1;
     const comboBoost = 1 + (coreLvl - 1) * 0.2;
 
-    if (target.lastElement && target.lastElement !== hitElement) {
-      const reaction = ElementalCombos.getComboMultiplier(target.lastElement, hitElement);
+    if (target.lastElement && target.lastElement !== orb.element) {
+      const reaction = ElementalCombos.getComboMultiplier(target.lastElement, orb.element);
       if (reaction.multiplier > 1.0) {
-        finalDamage = Math.round(baseDmg * reaction.multiplier * comboBoost);
+        finalDamage = Math.round(orb.damage * reaction.multiplier * comboBoost);
         this.cameras.main.shake(90, 0.005);
         this.showPopupBanner(hitX, hitY - 22, reaction.label, reaction.color);
-        this.addOverdriveCharge(12);
+        this.advanceMissionProgress(2);
       }
     }
-    target.lastElement = hitElement;
+    target.lastElement = orb.element;
 
     if (target.shieldHp > 0) {
       target.shieldHp = Math.max(0, target.shieldHp - finalDamage);
@@ -811,12 +1091,12 @@ export class BattleScene extends Phaser.Scene {
       if (target.shieldHp <= 0 && target.shieldRing) {
         target.shieldRing.destroy();
         target.shieldRing = null;
-        this.showPopupBanner(target.data.x, target.data.y - 24, 'SHIELD BROKEN!', '#00f5ff');
+        this.showPopupBanner(target.data.x, target.data.y - 24, 'SHIELD SHATTERED!', '#00f5ff');
       }
     }
 
     target.data.hp = Math.max(0, target.data.hp - finalDamage);
-    const badgePrefix = target.trait === 'BOMB' ? '💣 ' : target.trait === 'HEALER' ? '✨ ' : '';
+    const badgePrefix = target.trait === 'HEALER' ? '✨' : '';
     if (target.hpText) target.hpText.setText(`${badgePrefix}${target.data.hp}`);
 
     const barMaxW = target.data.width > 100 ? 110 : 38;
@@ -837,11 +1117,12 @@ export class BattleScene extends Phaser.Scene {
 
     const dmgPopup = this.add.text(hitX, hitY - 8, `-${finalDamage}`, {
       fontFamily: "'Orbitron', sans-serif",
-      fontSize: '13px',
+      fontSize: '13.5px',
       color: '#ffea00',
       fontStyle: 'bold',
       stroke: '#000000',
-      strokeThickness: 4
+      strokeThickness: 4,
+      shadow: { offsetX: 0, offsetY: 2, color: '#ff3d00', blur: 3, fill: true }
     }).setOrigin(0.5);
 
     this.tweens.add({
@@ -859,11 +1140,7 @@ export class BattleScene extends Phaser.Scene {
 
   private destroyMonsterBlock(target: VisualBlock): void {
     SoundSynth.playShatterSound();
-    this.spawnShatterParticles(target.data.x, target.data.y, target.data.color, 14);
-    const bx = target.data.x;
-    const by = target.data.y;
-    const wasBomb = target.trait === 'BOMB';
-
+    this.spawnShatterParticles(target.data.x, target.data.y, target.data.color, 15);
     target.container.destroy();
     this.blocks = this.blocks.filter((b) => b.data.id !== target.data.id);
 
@@ -872,47 +1149,12 @@ export class BattleScene extends Phaser.Scene {
     this.saveData.coins += coinGain;
     SaveSystem.save(this.saveData);
     this.updateHud();
-
-    // MASSIVE CHAIN-REACTION BOMB EXPLOSION!
-    if (wasBomb) {
-      this.cameras.main.shake(260, 0.015);
-      this.showPopupBanner(bx, by - 18, '💥 MEGA BOMB BLAST! 💥', '#ffea00');
-      this.spawnShatterParticles(bx, by, 0xff3d00, 26);
-
-      // Visual shockwave ring
-      const ring = this.add.circle(bx, by, 14, 0xffea00, 0.35).setStrokeStyle(3, 0xff3d00);
-      this.tweens.add({
-        targets: ring,
-        radius: 145,
-        alpha: 0,
-        duration: 320,
-        onComplete: () => ring.destroy()
-      });
-
-      const neighbors = [...this.blocks];
-      for (const nb of neighbors) {
-        if (nb.trait === 'WALL') continue;
-        const dist = Phaser.Math.Distance.Between(bx, by, nb.data.x, nb.data.y);
-        if (dist <= 155 && nb.data.hp > 0) {
-          const splashDmg = Math.round(nb.data.maxHp * 0.75);
-          nb.data.hp = Math.max(0, nb.data.hp - splashDmg);
-          if (nb.hpText) nb.hpText.setText(`${nb.data.hp}`);
-          const barMaxW = nb.data.width > 100 ? 110 : 38;
-          if (nb.hpBarFill) {
-            nb.hpBarFill.width = Math.max(0, (nb.data.hp / nb.data.maxHp) * barMaxW);
-          }
-          if (nb.data.hp <= 0) {
-            this.destroyMonsterBlock(nb);
-          }
-        }
-      }
-    }
   }
 
   private showPopupBanner(x: number, y: number, text: string, color: string): void {
     const label = this.add.text(x, y, text, {
       fontFamily: "'Orbitron', sans-serif",
-      fontSize: '11.5px',
+      fontSize: '11px',
       color,
       fontStyle: 'bold',
       stroke: '#000000',
@@ -929,10 +1171,11 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private onVolleyComplete(): void {
-    // Stage is cleared when all non-WALL monster blocks are destroyed!
-    const remainingMonsters = this.blocks.filter((b) => b.trait !== 'WALL');
+    const remainingTargets = this.blocks.filter(
+      (b) => b.trait !== 'WALL' && b.trait !== 'BOMB' && b.trait !== 'PRISM' && b.trait !== 'PRISM_3X'
+    );
 
-    if (remainingMonsters.length === 0) {
+    if (remainingTargets.length === 0) {
       const clearedWave = this.wave;
       const isFastClear = this.stageElapsedSeconds <= this.targetBonusSeconds;
       const isMediumClear = this.stageElapsedSeconds <= this.targetBonusSeconds + 30;
@@ -958,14 +1201,15 @@ export class BattleScene extends Phaser.Scene {
         timeBonusGold,
         starsEarned,
         clearSeconds: Math.round(this.stageElapsedSeconds),
+        maxCombo: this.maxVolleyCombo,
         score: this.score
       });
       return;
     }
 
-    const healers = remainingMonsters.filter((b) => b.trait === 'HEALER' && b.data.hp > 0);
+    const healers = remainingTargets.filter((b) => b.trait === 'HEALER' && b.data.hp > 0);
     if (healers.length > 0) {
-      for (const b of remainingMonsters) {
+      for (const b of remainingTargets) {
         if (b.data.hp < b.data.maxHp) {
           const healAmt = Math.round(b.data.maxHp * 0.15);
           b.data.hp = Math.min(b.data.maxHp, b.data.hp + healAmt);
@@ -979,7 +1223,7 @@ export class BattleScene extends Phaser.Scene {
       this.showPopupBanner(healers[0].data.x, healers[0].data.y - 20, '✨ CRYSTAL REGEN +15%!', '#00f5a0');
     }
 
-    this.statusHintText.setText('DRAG TO FIRE • TAP ⚒️ FORGE ICON TO MERGE RUNES');
+    this.statusHintText.setText('HIT 💎 2X/3X PRISMS & 🌀 TUNNELS • AVOID ☠️ TRAP BOMBS');
     this.statusHintText.setVisible(true);
   }
 
@@ -999,7 +1243,7 @@ export class BattleScene extends Phaser.Scene {
       strokeThickness: 6
     }).setOrigin(0.5);
 
-    this.add.text(width / 2, height / 2 - 48, `STAGE ${this.wave}   •   SCORE: ${this.score}`, {
+    this.add.text(width / 2, height / 2 - 48, `STAGE ${this.wave}   •   SCORE: ${this.score.toLocaleString()}`, {
       fontFamily: "'Chakra Petch', sans-serif",
       fontSize: '14px',
       color: '#ffffff',
@@ -1023,8 +1267,13 @@ export class BattleScene extends Phaser.Scene {
   private updateHud(): void {
     if (!this.coinsText) return;
     const meta = WaveSpawner.getWaveMetadata(this.wave);
-    this.coinsText.setText(`${this.saveData.coins}`);
+    this.coinsText.setText(`${this.saveData.coins.toLocaleString()}`);
     this.waveBannerText.setText(`STAGE ${this.wave} • ${meta.biomeName}`);
+
+    if (this.scoreTickerText) {
+      const formatted = this.score.toLocaleString().padStart(7, '0');
+      this.scoreTickerText.setText(`SCORE ${formatted}`);
+    }
   }
 }
 

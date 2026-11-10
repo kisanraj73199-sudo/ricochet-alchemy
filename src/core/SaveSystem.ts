@@ -1,8 +1,8 @@
 /**
  * Persistent LocalSave + Schema Migration Engine
- * Strictly typed with non-nullable stageStars & selectedStage so TypeScript never throws undefined errors.
+ * Tracks Stage Stars, Selected Stage, and Claimed Star Milestone Chests!
  */
-export const CURRENT_SCHEMA_VERSION = 3;
+export const CURRENT_SCHEMA_VERSION = 4;
 const STORAGE_KEY = 'ricochet_alchemy_save_v1';
 
 export interface PlayerSaveData {
@@ -11,6 +11,7 @@ export interface PlayerSaveData {
   highestWave: number;
   selectedStage: number;
   stageStars: Record<number, number>;
+  claimedStarChests: number;
   userAgeDeclared: number | null;
   grimoireLevels: Record<string, number>;
   gridRunes: (string | null)[];
@@ -24,6 +25,7 @@ export class SaveSystem {
       highestWave: 1,
       selectedStage: 1,
       stageStars: {},
+      claimedStarChests: 0,
       userAgeDeclared: null,
       grimoireLevels: {
         volatileMix: 1,
@@ -67,6 +69,7 @@ export class SaveSystem {
       highestWave,
       selectedStage: typeof raw.selectedStage === 'number' ? raw.selectedStage : highestWave,
       stageStars: existingStars,
+      claimedStarChests: typeof raw.claimedStarChests === 'number' ? raw.claimedStarChests : 0,
       userAgeDeclared: typeof raw.userAgeDeclared === 'number' ? raw.userAgeDeclared : null,
       grimoireLevels: {
         ...defaults.grimoireLevels,
