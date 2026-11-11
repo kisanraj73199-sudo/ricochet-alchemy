@@ -1,8 +1,8 @@
 /**
  * Persistent LocalSave + Schema Migration Engine
- * Tracks Stage Stars, Selected Stage, and Claimed Star Milestone Chests!
+ * Tracks Stage Stars, Selected Stage, Claimed Star Milestone Chests, and Daily Spin Wheel Date!
  */
-export const CURRENT_SCHEMA_VERSION = 4;
+export const CURRENT_SCHEMA_VERSION = 5;
 const STORAGE_KEY = 'ricochet_alchemy_save_v1';
 
 export interface PlayerSaveData {
@@ -12,6 +12,7 @@ export interface PlayerSaveData {
   selectedStage: number;
   stageStars: Record<number, number>;
   claimedStarChests: number;
+  lastDailySpinDate: string;
   userAgeDeclared: number | null;
   grimoireLevels: Record<string, number>;
   gridRunes: (string | null)[];
@@ -26,6 +27,7 @@ export class SaveSystem {
       selectedStage: 1,
       stageStars: {},
       claimedStarChests: 0,
+      lastDailySpinDate: '',
       userAgeDeclared: null,
       grimoireLevels: {
         volatileMix: 1,
@@ -70,6 +72,7 @@ export class SaveSystem {
       selectedStage: typeof raw.selectedStage === 'number' ? raw.selectedStage : highestWave,
       stageStars: existingStars,
       claimedStarChests: typeof raw.claimedStarChests === 'number' ? raw.claimedStarChests : 0,
+      lastDailySpinDate: typeof raw.lastDailySpinDate === 'string' ? raw.lastDailySpinDate : '',
       userAgeDeclared: typeof raw.userAgeDeclared === 'number' ? raw.userAgeDeclared : null,
       grimoireLevels: {
         ...defaults.grimoireLevels,

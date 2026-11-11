@@ -1,5 +1,5 @@
 /**
- * SAGA WORLD MAP WITH LUXURY 3D SCOREBOARD CREST & 10-STAGE WORLD CHAPTER GATES
+ * CANDY-CRUSH ILLUSTRATED SCENERY SAGA MAP, 3D ARCHWAY WORLD GATES & LUCKY SPIN WHEEL
  */
 import Phaser from 'phaser';
 import { ThemeConfig } from '../config/ThemeConfig';
@@ -29,8 +29,12 @@ export class MenuScene extends Phaser.Scene {
   private starChestFill!: Phaser.GameObjects.Rectangle;
 
   private mapContainer!: Phaser.GameObjects.Container;
+  private parallaxCloudContainer!: Phaser.GameObjects.Container;
   private techModalContainer!: Phaser.GameObjects.Container;
+  private spinWheelModalContainer!: Phaser.GameObjects.Container;
   private isTechModalOpen = false;
+  private isSpinWheelOpen = false;
+  private isWheelSpinning = false;
 
   private isDraggingMap = false;
   private dragStartY = 0;
@@ -80,15 +84,18 @@ export class MenuScene extends Phaser.Scene {
     ArtRenderer.generateAllGameTextures(this);
     this.saveData = SaveSystem.load();
     this.isTechModalOpen = false;
+    this.isSpinWheelOpen = false;
+    this.isWheelSpinning = false;
 
     const { width, height, topAdBannerHeight } = ThemeConfig.screen;
     const currentMeta = WaveSpawner.getWaveMetadata(this.saveData.highestWave);
 
-    // 1. Dynamic 10-Stage World Canvas matching player's frontier chapter!
+    // 1. Base Sky Backdrop
     ArtRenderer.drawDynamicBiomeWorld(this, width, height, currentMeta.palette);
 
-    // 2. Scrollable Winding Saga Map
+    // 2. Scrollable Candy-Crush Illustrated Scenery Map + Parallax Cloud Layer!
     this.mapContainer = this.add.container(0, 0);
+    this.parallaxCloudContainer = this.add.container(0, 0);
     this.buildScrollableSagaMap(width, height);
     this.setupMapScrollInput();
 
@@ -101,15 +108,17 @@ export class MenuScene extends Phaser.Scene {
       color: '#00f5ff'
     }).setOrigin(0.5).setDepth(21);
 
-    // 4. Upgraded 3D Luxury Scoreboard Crest on Main Screen!
+    // 4. 3D Luxury Scoreboard Crest + Floating Lucky Spin Wheel Icon!
     this.createLuxuryMainScoreboard(width);
 
     // 5. Centered Hero Start/Play Portal + Symmetric Side Icons
     this.createCenteredHeroBottomDeck(width, height);
 
-    // 6. Collapsible Tech Tree Constellation Modal
+    // 6. Collapsible Tech Tree & Daily Lucky Spin Wheel Modals
     this.techModalContainer = this.add.container(0, 0).setDepth(40).setVisible(false);
+    this.spinWheelModalContainer = this.add.container(0, 0).setDepth(45).setVisible(false);
     this.renderTechModal();
+    this.renderLuckySpinWheelModal();
 
     if (this.saveData.userAgeDeclared === null) {
       this.showNeutralAgeGateModal();
@@ -121,21 +130,71 @@ export class MenuScene extends Phaser.Scene {
 
   private buildScrollableSagaMap(width: number, height: number): void {
     this.mapContainer.removeAll(true);
+    this.parallaxCloudContainer.removeAll(true);
 
     const highest = this.saveData.highestWave || 1;
     const totalVisibleNodes = Math.max(30, highest + 14);
-    const nodeSpacingY = 108;
+    const nodeSpacingY = 112;
     const bottomBaseY = height - 210;
 
     const topNodeY = bottomBaseY - (totalVisibleNodes - 1) * nodeSpacingY;
     this.minMapY = 0;
     this.maxMapY = Math.max(0, 260 - topNodeY);
 
+    const getNodeX = (stage: number): number => width / 2 + Math.sin((stage - 1) * 0.75) * 104;
+    const getNodeY = (stage: number): number => bottomBaseY - (stage - 1) * nodeSpacingY;
+
+    // 1. Draw Distinct 10-Stage Biome Terrain Zones & Side Scenery Props (Candy-Crush World Feel!)
+    const sceneryGraphics = this.add.graphics();
+    this.mapContainer.add(sceneryGraphics);
+
+    const propKeys = ['prop_crystal', 'prop_volcano', 'prop_biotree', 'prop_crystal', 'prop_volcano', 'prop_icepeak'];
+
+    for (let chapterStart = 1; chapterStart <= totalVisibleNodes; chapterStart += 10) {
+      const meta = WaveSpawner.getWaveMetadata(chapterStart);
+      const zoneBottomY = getNodeY(chapterStart) + 65;
+      const zoneTopY = getNodeY(chapterStart + 9) - 55;
+      const zoneH = zoneBottomY - zoneTopY;
+
+      // Painted Terrain Backdrop for this 10-Stage World
+      sceneryGraphics.fillGradientStyle(
+        meta.palette.topBg,
+        meta.palette.topBg,
+        meta.palette.bottomBg,
+        meta.palette.bottomBg,
+        0.78
+      );
+      sceneryGraphics.fillRect(0, zoneTopY, width, zoneH);
+
+      // Glowing Biome River / Lava Stream / Ice fissure border along edges
+      sceneryGraphics.lineStyle(3, meta.palette.railColor, 0.35);
+      sceneryGraphics.lineBetween(12, zoneTopY, 12, zoneBottomY);
+      sceneryGraphics.lineBetween(width - 12, zoneTopY, width - 12, zoneBottomY);
+    }
+
+    // Place 3D Scenery Props (Crystals, Volcanoes, Bio-Trees, Ice Peaks) along the left & right banks!
+    for (let s = 1; s <= totalVisibleNodes; s += 2) {
+      const meta = WaveSpawner.getWaveMetadata(s);
+      const propKey = propKeys[meta.palette.chapterIndex % propKeys.length];
+      const ny = getNodeY(s);
+      const nx = getNodeX(s);
+      // Place prop on the opposite side of the road curve so it never blocks nodes
+      const propX = nx > width / 2 ? 38 : width - 38;
+      const propSprite = this.add.image(propX, ny - 10, propKey)
+        .setScale(0.82)
+        .setFlipX(propX > width / 2);
+      this.mapContainer.add(propSprite);
+
+      // Add parallax drifting cloud every 4 stages
+      if (s % 4 === 1) {
+        const cloud = this.add.image(s % 8 === 1 ? 85 : width - 85, ny * 0.65, 'prop_cloud').setScale(1.1);
+        this.parallaxCloudContainer.add(cloud);
+      }
+    }
+
+    // 2. Triple-Layer Winding Saga Ribbon Path
     const pathGraphics = this.add.graphics();
     this.mapContainer.add(pathGraphics);
-
-    const getNodeX = (stage: number): number => width / 2 + Math.sin((stage - 1) * 0.75) * 106;
-    const getNodeY = (stage: number): number => bottomBaseY - (stage - 1) * nodeSpacingY;
 
     for (let s = 1; s < totalVisibleNodes; s++) {
       const x1 = getNodeX(s);
@@ -144,10 +203,10 @@ export class MenuScene extends Phaser.Scene {
       const y2 = getNodeY(s + 1);
       const isUnlockedPath = s < highest;
 
-      pathGraphics.lineStyle(18, isUnlockedPath ? 0x00f5ff : 0x1a0e36, isUnlockedPath ? 0.22 : 0.45);
+      pathGraphics.lineStyle(18, isUnlockedPath ? 0x00f5ff : 0x1a0e36, isUnlockedPath ? 0.24 : 0.45);
       pathGraphics.lineBetween(x1, y1, x2, y2);
 
-      pathGraphics.lineStyle(8, isUnlockedPath ? 0x0077ff : 0x2b194d, isUnlockedPath ? 0.55 : 0.6);
+      pathGraphics.lineStyle(8, isUnlockedPath ? 0x0077ff : 0x2b194d, isUnlockedPath ? 0.58 : 0.6);
       pathGraphics.lineBetween(x1, y1, x2, y2);
 
       const steps = 6;
@@ -160,6 +219,7 @@ export class MenuScene extends Phaser.Scene {
       }
     }
 
+    // 3. Render Stage Nodes + 3D Royal Archway Ribbon Banners at Every 10th Stage!
     const starsMap = this.saveData.stageStars;
 
     for (let stage = 1; stage <= totalVisibleNodes; stage++) {
@@ -170,26 +230,32 @@ export class MenuScene extends Phaser.Scene {
       const isCurrent = stage === highest;
       const isLocked = stage > highest;
 
-      // Major 10-Stage World Chapter Gate Banner (Stages 1-10, 11-20, 21-30...)
+      // 3D Royal Archway & Curved Hanging Ribbon Banner at the start of every 10-Stage World!
       if ((stage - 1) % 10 === 0) {
         const meta = WaveSpawner.getWaveMetadata(stage);
         const chapterNum = Math.floor((stage - 1) / 10) + 1;
-        const pill = this.add.rectangle(width / 2, ny + 56, 304, 26, 0x14082e, 0.92)
-          .setStrokeStyle(2, meta.palette.railColor, 0.9);
-        const banner = this.add.text(
-          width / 2,
-          ny + 56,
-          `🌌 WORLD ${chapterNum}: ${meta.biomeName} (${stage}-${stage + 9}) 🌌`,
-          {
-            fontFamily: "'Orbitron', sans-serif",
-            fontSize: '8.5px',
-            color: '#ffea00',
-            fontStyle: 'bold',
-            stroke: '#000000',
-            strokeThickness: 3
-          }
-        ).setOrigin(0.5);
-        this.mapContainer.add([pill, banner]);
+        const gateY = ny + 64;
+
+        const archRibbon = this.add.image(width / 2, gateY, 'world_gate_ribbon').setScale(0.98);
+        const gateTitle = this.add.text(width / 2, gateY - 9, `👑 WORLD ${chapterNum}: ${meta.biomeName} 👑`, {
+          fontFamily: "'Orbitron', sans-serif",
+          fontSize: '9px',
+          color: '#ffea00',
+          fontStyle: 'bold',
+          stroke: '#000000',
+          strokeThickness: 3.5
+        }).setOrigin(0.5);
+
+        const gateSub = this.add.text(width / 2, gateY + 5, `STAGES ${stage} – ${stage + 9} • ${meta.difficultyLabel}`, {
+          fontFamily: "'Chakra Petch', sans-serif",
+          fontSize: '8.5px',
+          color: '#00f5ff',
+          fontStyle: 'bold',
+          stroke: '#000000',
+          strokeThickness: 3
+        }).setOrigin(0.5);
+
+        this.mapContainer.add([archRibbon, gateTitle, gateSub]);
       }
 
       let medKey = 'medallion_CYAN';
@@ -205,7 +271,7 @@ export class MenuScene extends Phaser.Scene {
       } else {
         nodeSprite.setInteractive({ useHandCursor: true });
         nodeSprite.on('pointerup', () => {
-          if (this.totalDragDistance < 12 && !this.isTechModalOpen) {
+          if (this.totalDragDistance < 12 && !this.isTechModalOpen && !this.isSpinWheelOpen) {
             SoundSynth.playUpgradeFanfare();
             this.saveData.selectedStage = stage;
             SaveSystem.save(this.saveData);
@@ -239,7 +305,6 @@ export class MenuScene extends Phaser.Scene {
         this.mapContainer.add([pulseRing, avatarToken]);
       }
 
-      // Upgraded 3D Metallic Stage Number Typography!
       const labelStr = isBoss ? `👑\n${stage}` : isLocked ? `🔒\n${stage}` : `${stage}`;
       const numTxt = this.add.text(nx, ny, labelStr, {
         fontFamily: "'Orbitron', sans-serif",
@@ -271,11 +336,12 @@ export class MenuScene extends Phaser.Scene {
     const currentStageY = getNodeY(highest);
     const desiredOffset = height * 0.54 - currentStageY;
     this.mapContainer.y = Phaser.Math.Clamp(desiredOffset, this.minMapY, this.maxMapY);
+    this.parallaxCloudContainer.y = this.mapContainer.y * 0.65;
   }
 
   private setupMapScrollInput(): void {
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      if (this.isTechModalOpen) return;
+      if (this.isTechModalOpen || this.isSpinWheelOpen) return;
       if (pointer.y > 115 && pointer.y < ThemeConfig.screen.height - 165) {
         this.isDraggingMap = true;
         this.dragStartY = pointer.y;
@@ -285,10 +351,11 @@ export class MenuScene extends Phaser.Scene {
     });
 
     this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
-      if (!this.isDraggingMap || this.isTechModalOpen) return;
+      if (!this.isDraggingMap || this.isTechModalOpen || this.isSpinWheelOpen) return;
       const dy = pointer.y - this.dragStartY;
       this.totalDragDistance = Math.max(this.totalDragDistance, Math.abs(dy));
       this.mapContainer.y = Phaser.Math.Clamp(this.mapStartY + dy, this.minMapY, this.maxMapY);
+      this.parallaxCloudContainer.y = this.mapContainer.y * 0.65;
     });
 
     this.input.on('pointerup', () => {
@@ -296,18 +363,15 @@ export class MenuScene extends Phaser.Scene {
     });
 
     this.input.on('wheel', (_pointer: unknown, _gameObjects: unknown, _deltaX: number, deltaY: number) => {
-      if (this.isTechModalOpen) return;
+      if (this.isTechModalOpen || this.isSpinWheelOpen) return;
       this.mapContainer.y = Phaser.Math.Clamp(this.mapContainer.y - deltaY * 0.6, this.minMapY, this.maxMapY);
+      this.parallaxCloudContainer.y = this.mapContainer.y * 0.65;
     });
   }
 
-  /**
-   * Upgraded 3D Winged Scoreboard Crest on Main Saga Map!
-   */
   private createLuxuryMainScoreboard(width: number): void {
     this.add.image(width / 2, 86, 'scoreboard_crest').setDepth(20);
 
-    // Left Wing: Gold Treasury Counter
     this.add.image(28, 82, 'icon_coin').setScale(1.05).setDepth(21);
     this.coinsText = this.add.text(45, 82, '', {
       fontFamily: "'Orbitron', sans-serif",
@@ -319,7 +383,6 @@ export class MenuScene extends Phaser.Scene {
       shadow: { offsetX: 0, offsetY: 2, color: '#ff6d00', blur: 3, fill: true }
     }).setOrigin(0, 0.5).setDepth(21);
 
-    // Center Crown: Total Saga Stars + 15-Star Milestone Chest Progress Bar!
     this.totalStarsBadgeText = this.add.text(width / 2, 70, '', {
       fontFamily: "'Orbitron', sans-serif",
       fontSize: '11.5px',
@@ -354,18 +417,146 @@ export class MenuScene extends Phaser.Scene {
     chestBg.on('pointerdown', () => this.tryClaimStarMilestoneChest());
     this.starChestText.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.tryClaimStarMilestoneChest());
 
-    // Right Wing: Best Stage Trophy Badge
-    this.add.text(width - 42, 82, `🏆\nSTG ${this.saveData.highestWave}`, {
+    // Right Wing: Spinning Daily Lucky Wheel Icon Button!
+    const spinIcon = this.add.image(width - 38, 82, 'lucky_wheel_disc')
+      .setScale(0.22)
+      .setDepth(21)
+      .setInteractive({ useHandCursor: true });
+    this.tweens.add({
+      targets: spinIcon,
+      angle: 360,
+      duration: 6000,
+      repeat: -1
+    });
+
+    this.add.text(width - 38, 104, '🎡 SPIN', {
       fontFamily: "'Orbitron', sans-serif",
-      fontSize: '9px',
-      color: '#00f5a0',
-      align: 'center',
+      fontSize: '7.5px',
+      color: '#ffea00',
       fontStyle: 'bold',
       stroke: '#000000',
-      strokeThickness: 3.5
-    }).setOrigin(0.5).setDepth(21);
+      strokeThickness: 3
+    }).setOrigin(0.5).setDepth(22);
+
+    spinIcon.on('pointerdown', () => {
+      SoundSynth.playBounceChime(4);
+      this.isSpinWheelOpen = true;
+      this.spinWheelModalContainer.setVisible(true);
+      this.renderLuckySpinWheelModal();
+    });
 
     this.updateCurrencyHeader();
+  }
+
+  /**
+   * 🎡 Daily Lucky Spin Wheel Modal (1 Free Spin Daily + Unlimited Rewarded Ad Spins!)
+   */
+  private renderLuckySpinWheelModal(): void {
+    this.spinWheelModalContainer.removeAll(true);
+    const { width, height } = ThemeConfig.screen;
+
+    const backdrop = this.add.rectangle(width / 2, height / 2, width, height, 0x04020c, 0.92).setInteractive();
+    const panel = ArtRenderer.drawOrnatePanel(this, 18, 150, width - 36, 520, 0x1e0e42, 0x090418, 0xffca28);
+
+    const title = this.add.text(width / 2, 188, '🎡 ALCHEMIST LUCKY WHEEL 🎡', {
+      fontFamily: "'Orbitron', sans-serif",
+      fontSize: '15px',
+      color: '#ffea00',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 4
+    }).setOrigin(0.5);
+
+    const wheelY = 345;
+    const sunburst = this.add.image(width / 2, wheelY, 'victory_sunburst').setScale(1.1);
+    const wheelDisc = this.add.image(width / 2, wheelY, 'lucky_wheel_disc').setScale(1.08);
+    // Golden Pointer Arrow at top of wheel
+    const pointerTxt = this.add.text(width / 2, wheelY - 118, '▼', {
+      fontSize: '28px',
+      color: '#00f5ff',
+      stroke: '#000000',
+      strokeThickness: 5
+    }).setOrigin(0.5);
+
+    const statusTxt = this.add.text(width / 2, wheelY + 132, 'WIN GOLD JACKPOTS OR TIER-III RUNES!', {
+      fontFamily: "'Orbitron', sans-serif",
+      fontSize: '10px',
+      color: '#00f5a0',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const hasFreeSpin = this.saveData.lastDailySpinDate !== todayStr;
+
+    const triggerWheelSpin = () => {
+      if (this.isWheelSpinning) return;
+      this.isWheelSpinning = true;
+      SoundSynth.playBounceChime(5);
+
+      const rewards = [
+        { label: '+100 GOLD!', coins: 100, runeTier: 0 },
+        { label: 'TIER-II RUNE!', coins: 0, runeTier: 2 },
+        { label: '+250 GOLD!', coins: 250, runeTier: 0 },
+        { label: 'TIER-III RUNE!', coins: 0, runeTier: 3 },
+        { label: '+150 GOLD!', coins: 150, runeTier: 0 },
+        { label: '+500 JACKPOT!', coins: 500, runeTier: 0 }
+      ];
+      const winIdx = Math.floor(Math.random() * rewards.length);
+      const targetAngle = 360 * 5 - winIdx * 60;
+
+      this.tweens.add({
+        targets: wheelDisc,
+        angle: targetAngle,
+        duration: 2800,
+        ease: 'Cubic.easeOut',
+        onComplete: () => {
+          this.isWheelSpinning = false;
+          const prize = rewards[winIdx];
+          if (prize.coins > 0) this.saveData.coins += prize.coins;
+          if (prize.runeTier > 0) ForgeGrid.spawnRuneInEmptySlot(this.saveData.gridRunes, (prize.runeTier >= 2 ? 2 : 1) as 1 | 2);
+          SaveSystem.save(this.saveData);
+          SoundSynth.playUpgradeFanfare();
+          statusTxt.setText(`🎉 YOU WON: ${prize.label} 🎉`);
+          statusTxt.setColor('#ffea00');
+          this.updateCurrencyHeader();
+        }
+      });
+    };
+
+    const spinBtn = ArtRenderer.createTactileButton(
+      this,
+      width / 2,
+      540,
+      hasFreeSpin ? 'btn_GREEN_lg' : 'btn_ORANGE_lg',
+      hasFreeSpin ? '🎡 FREE DAILY SPIN!' : '▶ WATCH AD TO SPIN',
+      '12px',
+      () => {
+        if (this.isWheelSpinning) return;
+        if (this.saveData.lastDailySpinDate !== todayStr) {
+          this.saveData.lastDailySpinDate = todayStr;
+          SaveSystem.save(this.saveData);
+          triggerWheelSpin();
+        } else {
+          AdService.getInstance().showRewardedAd(() => triggerWheelSpin());
+        }
+      }
+    );
+
+    const closeBtn = ArtRenderer.createTactileButton(
+      this,
+      width / 2,
+      612,
+      'btn_GRAY_sm',
+      '✕ CLOSE',
+      '11px',
+      () => {
+        if (this.isWheelSpinning) return;
+        this.isSpinWheelOpen = false;
+        this.spinWheelModalContainer.setVisible(false);
+      }
+    );
+
+    this.spinWheelModalContainer.add([backdrop, panel, title, sunburst, wheelDisc, pointerTxt, statusTxt, spinBtn, closeBtn]);
   }
 
   private tryClaimStarMilestoneChest(): void {
@@ -449,7 +640,7 @@ export class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(22);
 
     playPortal.on('pointerdown', () => {
-      if (this.isTechModalOpen) return;
+      if (this.isTechModalOpen || this.isSpinWheelOpen) return;
       SoundSynth.playUpgradeFanfare();
       this.saveData.selectedStage = this.saveData.highestWave;
       SaveSystem.save(this.saveData);
@@ -471,7 +662,7 @@ export class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(22);
 
     adMedallion.on('pointerdown', () => {
-      if (this.isTechModalOpen) return;
+      if (this.isTechModalOpen || this.isSpinWheelOpen) return;
       AdService.getInstance().showRewardedAd(() => {
         this.saveData.coins += 150;
         SaveSystem.save(this.saveData);

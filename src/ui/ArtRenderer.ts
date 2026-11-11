@@ -1,5 +1,5 @@
 /**
- * PRO-ULTRA 10-STAGE WORLD SCENERY, 2X/3X PRISM BUBBLES & 3D SCOREBOARD ART ENGINE
+ * CANDY-CRUSH SCENERY LANDMARKS, 3D ARCHWAY RIBBONS, SPIN WHEEL & POTION FLASK ENGINE
  */
 import Phaser from 'phaser';
 import { ElementType } from '../config/OrbsConfig';
@@ -8,8 +8,8 @@ import { BiomePalette } from '../gameplay/WaveSpawner';
 
 export class ArtRenderer {
     public static generateAllGameTextures(scene: Phaser.Scene): void {
-        if (scene.textures.exists('mega_upgrade_v7')) return;
-        scene.textures.createCanvas('mega_upgrade_v7', 2, 2)?.refresh();
+        if (scene.textures.exists('mega_upgrade_v8')) return;
+        scene.textures.createCanvas('mega_upgrade_v8', 2, 2)?.refresh();
 
         this.createSeamlessWorldBackground(scene);
 
@@ -50,7 +50,7 @@ export class ArtRenderer {
         this.createSleekPillTexture(scene, 'btn_GRAY_sm', 126, 34, '#607d8b', '#263238');
         this.createSleekPillTexture(scene, 'btn_PURPLE_nav', 88, 34, '#ff4081', '#7b1fa2');
 
-        // 5. Luxury Scoreboard Crest, Dragon-Tech Cannon, Spinning Pedestal, Chests & Particles
+        // 5. Scoreboard Crest, Cannon, Pedestal, Chests & Particles
         this.createLuxuryScoreboardCrestTexture(scene);
         this.createHoloRingSlotTexture(scene, 'slot_normal', false);
         this.createHoloRingSlotTexture(scene, 'slot_top_queue', true);
@@ -61,6 +61,405 @@ export class ArtRenderer {
         this.createSunburstTexture(scene);
         this.createCustomGameIcons(scene);
         this.createParticleTexture(scene);
+
+        // 6. NEW: 3D World Gate Archway Ribbon, Scenery Landmarks, Lucky Wheel, Parachute Gift & Potion Flask!
+        this.createWorldGateArchwayRibbonTexture(scene);
+        this.createBiomeSceneryProps(scene);
+        this.createLuckySpinWheelTexture(scene);
+        this.createParachuteGiftTexture(scene);
+        this.createPotionFlaskTexture(scene);
+    }
+
+    /**
+     * 3D Golden Archway Pillars + Curved Royal Hanging Ribbon ('world_gate_ribbon')
+     * Replaces the flat rectangular 10th-stage text box on the Saga Map!
+     */
+    private static createWorldGateArchwayRibbonTexture(scene: Phaser.Scene): void {
+        const w = 348;
+        const h = 76;
+        const canvasTex = scene.textures.createCanvas('world_gate_ribbon', w, h);
+        if (!canvasTex) return;
+        const ctx = canvasTex.getContext();
+        const cx = w / 2;
+
+        // 1. Left & Right 3D Golden Portal Pillars
+        const drawPillar = (px: number) => {
+            const pGrad = ctx.createLinearGradient(px - 14, 0, px + 14, 0);
+            pGrad.addColorStop(0, '#8d5300');
+            pGrad.addColorStop(0.5, '#ffea00');
+            pGrad.addColorStop(1, '#6d3b00');
+            ctx.fillStyle = pGrad;
+            ctx.beginPath();
+            ctx.roundRect(px - 12, 8, 24, h - 10, 6);
+            ctx.fill();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#ffffff';
+            ctx.stroke();
+
+            // Glowing Crystal Orb on Pillar Top
+            ctx.fillStyle = '#00f5ff';
+            ctx.beginPath();
+            ctx.arc(px, 12, 9, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+        };
+        drawPillar(28);
+        drawPillar(w - 28);
+
+        // 2. Ribbon Swallowtail Ends (Left & Right)
+        ctx.fillStyle = '#6a0080';
+        ctx.strokeStyle = '#ffca28';
+        ctx.lineWidth = 2;
+
+        ctx.beginPath();
+        ctx.moveTo(46, 22);
+        ctx.lineTo(14, 16);
+        ctx.lineTo(24, 34);
+        ctx.lineTo(14, 52);
+        ctx.lineTo(46, 46);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(w - 46, 22);
+        ctx.lineTo(w - 14, 16);
+        ctx.lineTo(w - 24, 34);
+        ctx.lineTo(w - 14, 52);
+        ctx.lineTo(w - 46, 46);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // 3. Main Curved 3D Royal Ribbon Banner Body
+        const ribGrad = ctx.createLinearGradient(0, 12, 0, 56);
+        ribGrad.addColorStop(0, '#311b92');
+        ribGrad.addColorStop(0.5, '#1a093b');
+        ribGrad.addColorStop(1, '#4a0072');
+
+        ctx.fillStyle = ribGrad;
+        ctx.beginPath();
+        ctx.roundRect(36, 12, w - 72, 42, 14);
+        ctx.fill();
+
+        // Thick Metallic Gold Trim & Top Crown Jewel
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#ffca28';
+        ctx.stroke();
+
+        ctx.fillStyle = '#ffea00';
+        ctx.beginPath();
+        ctx.arc(cx, 12, 6, 0, Math.PI * 2);
+        ctx.fill();
+
+        canvasTex.refresh();
+    }
+
+    /**
+     * Candy-Crush Style 3D Illustrated Scenery Landmarks for each 10-Stage World!
+     */
+    private static createBiomeSceneryProps(scene: Phaser.Scene): void {
+        // 1. 'prop_crystal': 3D Glowing Starlight Crystal Cluster (World 1)
+        const cTex = scene.textures.createCanvas('prop_crystal', 64, 64);
+        if (cTex) {
+            const ctx = cTex.getContext();
+            const drawShard = (pts: [number, number][], c1: string, c2: string) => {
+                const g = ctx.createLinearGradient(32, 8, 32, 58);
+                g.addColorStop(0, c1);
+                g.addColorStop(1, c2);
+                ctx.fillStyle = g;
+                ctx.beginPath();
+                ctx.moveTo(pts[0][0], pts[0][1]);
+                for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+                ctx.closePath();
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1.4;
+                ctx.stroke();
+            };
+            drawShard([[18, 56], [10, 26], [20, 14], [28, 56]], '#80d8ff', '#004ecb');
+            drawShard([[46, 56], [54, 28], [44, 16], [36, 56]], '#ea80fc', '#6a0080');
+            drawShard([[24, 58], [26, 12], [34, 4], [40, 14], [40, 58]], '#00f5ff', '#0066ff');
+            cTex.refresh();
+        }
+
+        // 2. 'prop_volcano': Erupting Magma Volcano Crater (World 2)
+        const vTex = scene.textures.createCanvas('prop_volcano', 68, 64);
+        if (vTex) {
+            const ctx = vTex.getContext();
+            // Lava glow at top
+            const glow = ctx.createRadialGradient(34, 16, 2, 34, 16, 24);
+            glow.addColorStop(0, '#ffea00');
+            glow.addColorStop(0.5, '#ff3d00');
+            glow.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = glow;
+            ctx.beginPath();
+            ctx.arc(34, 16, 24, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Volcanic cone
+            const coneGrad = ctx.createLinearGradient(34, 16, 34, 58);
+            coneGrad.addColorStop(0, '#4e1505');
+            coneGrad.addColorStop(1, '#1a0500');
+            ctx.fillStyle = coneGrad;
+            ctx.beginPath();
+            ctx.moveTo(8, 58);
+            ctx.lineTo(24, 18);
+            ctx.lineTo(44, 18);
+            ctx.lineTo(60, 58);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = '#ff6d00';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // Flowing lava streams
+            ctx.strokeStyle = '#ffea00';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(30, 18);
+            ctx.quadraticCurveTo(26, 36, 32, 54);
+            ctx.moveTo(38, 18);
+            ctx.quadraticCurveTo(44, 34, 40, 50);
+            ctx.stroke();
+            vTex.refresh();
+        }
+
+        // 3. 'prop_biotree': Glowing Emerald Alchemical Mushroom/Tree (World 3)
+        const bTex = scene.textures.createCanvas('prop_biotree', 64, 64);
+        if (bTex) {
+            const ctx = bTex.getContext();
+            ctx.fillStyle = '#4e342e';
+            ctx.fillRect(28, 32, 8, 26);
+
+            const capGrad = ctx.createRadialGradient(32, 22, 4, 32, 28, 24);
+            capGrad.addColorStop(0, '#b9f6ca');
+            capGrad.addColorStop(0.5, '#00e676');
+            capGrad.addColorStop(1, '#004d25');
+            ctx.fillStyle = capGrad;
+            ctx.beginPath();
+            ctx.arc(32, 28, 22, Math.PI, Math.PI * 2);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // Glowing spots
+            ctx.fillStyle = '#ffea00';
+            ctx.beginPath();
+            ctx.arc(24, 20, 3, 0, Math.PI * 2);
+            ctx.arc(38, 18, 3.5, 0, Math.PI * 2);
+            ctx.arc(32, 12, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+            bTex.refresh();
+        }
+
+        // 4. 'prop_icepeak': Glacier Frost Spire & Snow Mountain (World 4+)
+        const iTex = scene.textures.createCanvas('prop_icepeak', 68, 64);
+        if (iTex) {
+            const ctx = iTex.getContext();
+            const iceGrad = ctx.createLinearGradient(34, 6, 34, 58);
+            iceGrad.addColorStop(0, '#ffffff');
+            iceGrad.addColorStop(0.45, '#40c4ff');
+            iceGrad.addColorStop(1, '#01579b');
+            ctx.fillStyle = iceGrad;
+            ctx.beginPath();
+            ctx.moveTo(6, 58);
+            ctx.lineTo(22, 22);
+            ctx.lineTo(30, 32);
+            ctx.lineTo(38, 8);
+            ctx.lineTo(50, 28);
+            ctx.lineTo(62, 58);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = '#e0f7fa';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            iTex.refresh();
+        }
+
+        // 5. 'prop_cloud': Soft Astral Parallax Cloud
+        const clTex = scene.textures.createCanvas('prop_cloud', 110, 48);
+        if (clTex) {
+            const ctx = clTex.getContext();
+            const g = ctx.createRadialGradient(55, 24, 5, 55, 24, 50);
+            g.addColorStop(0, 'rgba(255, 255, 255, 0.22)');
+            g.addColorStop(0.6, 'rgba(0, 245, 255, 0.08)');
+            g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            ctx.ellipse(55, 24, 50, 18, 0, 0, Math.PI * 2);
+            ctx.fill();
+            clTex.refresh();
+        }
+    }
+
+    /**
+     * 🎡 6-Slice Colorful Arcade Lucky Spin Wheel ('lucky_wheel_disc')
+     */
+    private static createLuckySpinWheelTexture(scene: Phaser.Scene): void {
+        const size = 210;
+        const canvasTex = scene.textures.createCanvas('lucky_wheel_disc', size, size);
+        if (!canvasTex) return;
+        const ctx = canvasTex.getContext();
+        const cx = size / 2;
+        const cy = size / 2;
+        const r = size / 2 - 8;
+
+        const slices = [
+            { color: '#ff0055', label: '+100G' },
+            { color: '#0077ff', label: 'TIER-II' },
+            { color: '#00c853', label: '+250G' },
+            { color: '#aa00ff', label: 'TIER-III' },
+            { color: '#ff6d00', label: '+150G' },
+            { color: '#00bfa5', label: '+500G' }
+        ];
+
+        for (let i = 0; i < 6; i++) {
+            const a1 = (i * Math.PI * 2) / 6 - Math.PI / 2 - Math.PI / 6;
+            const a2 = a1 + (Math.PI * 2) / 6;
+
+            ctx.fillStyle = slices[i].color;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.arc(cx, cy, r, a1, a2);
+            ctx.closePath();
+            ctx.fill();
+            ctx.lineWidth = 2.5;
+            ctx.strokeStyle = '#ffca28';
+            ctx.stroke();
+
+            // Slice text
+            ctx.save();
+            const midA = (a1 + a2) / 2;
+            ctx.translate(cx + Math.cos(midA) * (r * 0.62), cy + Math.sin(midA) * (r * 0.62));
+            ctx.rotate(midA + Math.PI / 2);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 11px Orbitron, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(slices[i].label, 0, 0);
+            ctx.restore();
+        }
+
+        // Outer Royal Gold Rim & Pegs
+        ctx.lineWidth = 6;
+        ctx.strokeStyle = '#ffca28';
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.stroke();
+
+        for (let i = 0; i < 12; i++) {
+            const a = (i * Math.PI * 2) / 12;
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(cx + Math.cos(a) * r, cy + Math.sin(a) * r, 3.5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Center Hub Gem
+        ctx.fillStyle = '#1a093b';
+        ctx.beginPath();
+        ctx.arc(cx, cy, 20, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#00f5ff';
+        ctx.stroke();
+
+        canvasTex.refresh();
+    }
+
+    /**
+     * 🎁 Floating Golden Parachute Mystery Gift Box ('parachute_gift')
+     */
+    private static createParachuteGiftTexture(scene: Phaser.Scene): void {
+        const w = 56;
+        const h = 68;
+        const canvasTex = scene.textures.createCanvas('parachute_gift', w, h);
+        if (!canvasTex) return;
+        const ctx = canvasTex.getContext();
+        const cx = w / 2;
+
+        // Parachute canopy
+        const canGrad = ctx.createRadialGradient(cx, 18, 2, cx, 22, 22);
+        canGrad.addColorStop(0, '#fff59d');
+        canGrad.addColorStop(0.5, '#ff007f');
+        canGrad.addColorStop(1, '#7b1fa2');
+        ctx.fillStyle = canGrad;
+        ctx.beginPath();
+        ctx.arc(cx, 24, 20, Math.PI, Math.PI * 2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = '#ffffff';
+        ctx.stroke();
+
+        // Suspension cords
+        ctx.strokeStyle = '#ffea00';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(cx - 18, 24);
+        ctx.lineTo(cx - 8, 42);
+        ctx.moveTo(cx + 18, 24);
+        ctx.lineTo(cx + 8, 42);
+        ctx.stroke();
+
+        // Golden Gift Box
+        ctx.fillStyle = '#ffca28';
+        ctx.beginPath();
+        ctx.roundRect(cx - 12, 40, 24, 22, 4);
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Red Ribbon Cross
+        ctx.fillStyle = '#ff1744';
+        ctx.fillRect(cx - 3, 40, 6, 22);
+        ctx.fillRect(cx - 12, 48, 24, 5);
+
+        canvasTex.refresh();
+    }
+
+    /**
+     * 🧪 3D Glass Alchemical Potion Flask ('potion_flask_glass')
+     */
+    private static createPotionFlaskTexture(scene: Phaser.Scene): void {
+        const size = 68;
+        const canvasTex = scene.textures.createCanvas('potion_flask_glass', size, size);
+        if (!canvasTex) return;
+        const ctx = canvasTex.getContext();
+        const cx = size / 2;
+        const cy = size / 2 + 4;
+
+        // Flask Neck & Cork Rim
+        ctx.fillStyle = '#ffca28';
+        ctx.fillRect(cx - 9, 6, 18, 5);
+        ctx.strokeStyle = '#00f5ff';
+        ctx.lineWidth = 2.5;
+        ctx.strokeRect(cx - 6, 11, 12, 9);
+
+        // Outer Glass Bulb
+        const glassGrad = ctx.createRadialGradient(cx - 8, cy - 8, 2, cx, cy, 24);
+        glassGrad.addColorStop(0, 'rgba(255, 255, 255, 0.35)');
+        glassGrad.addColorStop(0.6, 'rgba(0, 245, 255, 0.15)');
+        glassGrad.addColorStop(1, 'rgba(18, 8, 38, 0.9)');
+        ctx.fillStyle = glassGrad;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 23, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = '#ffca28';
+        ctx.stroke();
+
+        // Specular shine
+        ctx.fillStyle = 'rgba(255,255,255,0.65)';
+        ctx.beginPath();
+        ctx.ellipse(cx - 8, cy - 8, 7, 3.5, -0.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        canvasTex.refresh();
     }
 
     private static create3DNumberPillTexture(scene: Phaser.Scene, key: string, w: number, h: number): void {
@@ -282,10 +681,6 @@ export class ArtRenderer {
         canvasTex.refresh();
     }
 
-    /**
-     * Renders a Completely Distinct 10-Stage World Scenery & Color Theme!
-     * Every 10 stages (1-10, 11-20, 21-30, 31-40, 41-50, 51-60) switches both colors AND sacred geometry!
-     */
     public static drawDynamicBiomeWorld(
         scene: Phaser.Scene,
         width: number,
@@ -294,11 +689,9 @@ export class ArtRenderer {
     ): void {
         const g = scene.add.graphics();
 
-        // 1. Deep 10-Stage World Sky Gradient
         g.fillGradientStyle(palette.topBg, palette.topBg, palette.bottomBg, palette.bottomBg, 1);
         g.fillRect(0, 0, width, height);
 
-        // 2. Dual Pulsing Nebula Auroras
         const neb1 = scene.add.circle(width * 0.3, height * 0.35, 165, palette.nebulaGlow, 0.12);
         const neb2 = scene.add.circle(width * 0.72, height * 0.56, 155, palette.railColor, 0.1);
         scene.tweens.add({
@@ -311,21 +704,17 @@ export class ArtRenderer {
             repeat: -1
         });
 
-        // 3. Unique Architectural Background Pattern per 10-Stage Chapter!
         g.lineStyle(1.2, palette.gridColor, 0.11);
         if (palette.patternStyle === 'MAGMA') {
-            // Diagonal Volcanic Fissure Lines
             for (let i = -200; i < height; i += 65) {
                 g.lineBetween(0, i, width, i + 180);
                 g.lineBetween(width, i, 0, i + 180);
             }
         } else if (palette.patternStyle === 'BIORING') {
-            // Concentric Bio-AlchemicalSacred Rings
             for (let r = 60; r <= 320; r += 65) {
                 g.strokeCircle(width / 2, height * 0.44, r);
             }
         } else if (palette.patternStyle === 'CYBER') {
-            // Perspective Synthwave Horizon Rays
             for (let x = -120; x <= width + 120; x += 60) {
                 g.lineBetween(width / 2, 110, x, height - 100);
             }
@@ -333,14 +722,12 @@ export class ArtRenderer {
                 g.lineBetween(0, y, width, y);
             }
         } else if (palette.patternStyle === 'SOLAR') {
-            // Imperial Golden Diamond Lattice
             for (let y = 130; y < height - 120; y += 70) {
                 for (let x = 45; x < width - 30; x += 75) {
                     g.strokeRect(x - 18, y - 18, 36, 36);
                 }
             }
         } else {
-            // Crystal Starlight & Frost Matrix Grid
             for (let y = 120; y < height - 90; y += 52) {
                 g.lineBetween(0, y, width, y);
             }
@@ -349,12 +736,16 @@ export class ArtRenderer {
             }
         }
 
-        // 4. Left & Right Laser Bumper Rails
+        // Add Side Scenery Landmarks inside Battle Arena matching the World!
+        const propKeys = ['prop_crystal', 'prop_volcano', 'prop_biotree', 'prop_crystal', 'prop_volcano', 'prop_icepeak'];
+        const pKey = propKeys[palette.chapterIndex % propKeys.length];
+        scene.add.image(22, 138, pKey).setScale(0.55).setAlpha(0.55);
+        scene.add.image(width - 22, 138, pKey).setScale(0.55).setAlpha(0.55).setFlipX(true);
+
         g.fillStyle(palette.railColor, 0.85);
         g.fillRect(0, 100, 4, height - 210);
         g.fillRect(width - 4, 100, 4, height - 210);
 
-        // 5. Floating Chapter Particles
         for (let i = 0; i < 9; i++) {
             const px = 30 + ((i * 43) % (width - 60));
             const py = 140 + ((i * 79) % (height - 280));
@@ -392,9 +783,6 @@ export class ArtRenderer {
         canvasTex.refresh();
     }
 
-    /**
-     * Supports both '2X' (Cyan-Violet) and '3X' (Gold-Magenta Jackpot) Multiball Split-Prism Bubbles!
-     */
     private static createPrismMysteryBubbleTexture(
         scene: Phaser.Scene,
         key: string,

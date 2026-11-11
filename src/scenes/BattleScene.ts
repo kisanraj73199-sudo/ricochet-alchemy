@@ -20,6 +20,11 @@ interface VisualBlock {
   hpBarFill: Phaser.GameObjects.Rectangle | null;
   hpText: Phaser.GameObjects.Text | null;
   lastElement: ElementType | null;
+  // Elemental Status Effects & Moving Wall State!
+  freezeSeconds: number;
+  burnTicks: number;
+  wallOriginX: number;
+  wallMoveDir: number;
 }
 
 interface FlyingOrb extends ActiveOrb {
@@ -50,12 +55,19 @@ export class BattleScene extends Phaser.Scene {
   private volleyFlightSeconds = 0;
   private recallCountdownText!: Phaser.GameObjects.Text;
 
+  // Liquid Alchemical Potion Flask Mission State
   private missionProgressHits = 0;
   private missionTargetHits = 15;
   private hyperBurstState: 'CHARGING' | 'READY' | 'ACTIVATED' | 'USED' = 'CHARGING';
   private activeVolleyTimeScale = 1.0;
+  private potionLiquidFill!: Phaser.GameObjects.Rectangle;
+  private missionText!: Phaser.GameObjects.Text;
 
-  // Dynamic Multi-Tunnel Wormhole Arrays!
+  // Floating Parachute Mystery Gift State
+  private parachuteSprite: Phaser.GameObjects.Image | null = null;
+  private parachuteVx = 58;
+  private nextParachuteSpawnTimer = 9.0;
+
   private entryPortals: PortalCoord[] = [];
   private exitPortals: PortalCoord[] = [];
 
@@ -71,8 +83,6 @@ export class BattleScene extends Phaser.Scene {
   private coinsText!: Phaser.GameObjects.Text;
   private scoreTickerText!: Phaser.GameObjects.Text;
   private waveBannerText!: Phaser.GameObjects.Text;
-  private missionRing!: Phaser.GameObjects.Arc;
-  private missionText!: Phaser.GameObjects.Text;
   private statusHintText!: Phaser.GameObjects.Text;
 
   private ammoBeltContainer!: Phaser.GameObjects.Container;
@@ -115,6 +125,8 @@ export class BattleScene extends Phaser.Scene {
     this.activeVolleyTimeScale = 1.0;
     this.maxVolleyCombo = 0;
     this.score = 0;
+    this.parachuteSprite = null;
+    this.nextParachuteSpawnTimer = 8.0;
 
     this.entryPortals = meta.entryPortals;
     this.exitPortals = meta.exitPortals;
@@ -153,7 +165,7 @@ export class BattleScene extends Phaser.Scene {
     // 4. LUXURY ESPORTS SCOREBOARD CREST HUD
     this.createLuxuryScoreboardHud(width);
 
-    // 5. ROYAL DRAGON-PHOENIX LAUNCHER PEDESTAL & BOTTOM DECK
+    // 5. ROYAL DRAGON-PHOENIX LAUNCHER PEDESTAL + LIQUID POTION FLASK BUTTON
     this.createBottomCombatDeck(width, height);
 
     // 6. SLIDE-UP HOLOGRAPHIC FORGE DRAWER
@@ -291,7 +303,7 @@ export class BattleScene extends Phaser.Scene {
       strokeThickness: 4
     }).setOrigin(0.5).setVisible(false);
 
-    this.statusHintText = this.add.text(width / 2, this.cannonY - 48, 'HIT 💎 2X/3X PRISMS & 🌀 TUNNELS • AVOID ☠️ TRAPS!', {
+    this.statusHintText = this.add.text(width / 2, this.cannonY - 48, '❄️ ICE FREEZES • 🔥 FIRE BURNS • SHOOT 🎁 PARACHUTES!', {
       fontFamily: "'Orbitron', sans-serif",
       fontSize: '8.5px',
       color: '#00f5ff',
@@ -303,30 +315,32 @@ export class BattleScene extends Phaser.Scene {
     this.ammoBeltContainer = this.add.container(0, 0);
     this.renderCompactAmmoBelt();
 
+    // Left Floating Control: 🧪 3D Glass Alchemical Potion Flask with Rising Liquid!
     const msX = 48;
     const msY = height - 64;
-    const msBtn = this.add.image(msX, msY, 'medallion_GOLD').setScale(0.92).setInteractive({ useHandCursor: true });
-    this.missionRing = this.add.circle(msX, msY, 28, 0x00f5a0, 0.18).setStrokeStyle(2.5, 0xffea00);
-    this.missionText = this.add.text(msX, msY, `🎯\n0/${this.missionTargetHits}`, {
+    this.potionLiquidFill = this.add.rectangle(msX, msY + 22, 34, 2, 0x00f5a0, 0.85).setOrigin(0.5, 1);
+    const flaskImg = this.add.image(msX, msY, 'potion_flask_glass').setScale(0.95).setInteractive({ useHandCursor: true });
+
+    this.missionText = this.add.text(msX, msY + 4, `🧪\n0/${this.missionTargetHits}`, {
       fontFamily: "'Orbitron', sans-serif",
-      fontSize: '9px',
+      fontSize: '8.5px',
       color: '#ffffff',
       align: 'center',
       fontStyle: 'bold',
       stroke: '#000000',
-      strokeThickness: 3
+      strokeThickness: 3.5
     }).setOrigin(0.5);
 
-    msBtn.on('pointerdown', () => {
+    flaskImg.on('pointerdown', () => {
       if (this.hyperBurstState === 'READY' && !this.isVolleyActive) {
         this.hyperBurstState = 'ACTIVATED';
         SoundSynth.playUpgradeFanfare();
         this.missionText.setText('🔥\nARMED!');
-        this.missionText.setColor('#00f5a0');
-        this.missionRing.setStrokeStyle(3.5, 0x00f5a0);
-        this.showPopupBanner(width / 2, this.cannonY - 68, '⚡ ONE-TIME HYPER BURST ARMED FOR NEXT SHOT! ⚡', '#00f5a0');
+        this.missionText.setColor('#ffea00');
+        this.potionLiquidFill.setFillStyle(0xff007f);
+        this.showPopupBanner(width / 2, this.cannonY - 68, '🧪 ELIXIR OVERDRIVE ARMED FOR NEXT SHOT! 🧪', '#00f5a0');
       } else if (this.hyperBurstState === 'CHARGING') {
-        this.showPopupBanner(msX + 45, msY - 36, `HIT ${this.missionTargetHits - this.missionProgressHits} MORE GEMS!`, '#ffea00');
+        this.showPopupBanner(msX + 45, msY - 36, `HIT ${this.missionTargetHits - this.missionProgressHits} MORE GEMS TO FILL FLASK!`, '#ffea00');
       }
     });
 
@@ -354,16 +368,18 @@ export class BattleScene extends Phaser.Scene {
   private advanceMissionProgress(steps: number): void {
     if (this.hyperBurstState !== 'CHARGING') return;
     this.missionProgressHits = Math.min(this.missionTargetHits, this.missionProgressHits + steps);
+    const ratio = this.missionProgressHits / this.missionTargetHits;
+    this.potionLiquidFill.height = Math.max(2, Math.round(ratio * 34));
 
     if (this.missionProgressHits >= this.missionTargetHits) {
       this.hyperBurstState = 'READY';
       SoundSynth.playUpgradeFanfare();
-      this.missionText.setText('⚡ TAP\nBURST!');
+      this.missionText.setText('⚡ TAP\nFLASK!');
       this.missionText.setColor('#ffea00');
-      this.missionRing.setStrokeStyle(3.5, 0x00f5ff);
-      this.showPopupBanner(ThemeConfig.screen.width / 2, this.cannonY - 68, '🎯 MISSION COMPLETE! TAP ⚡ BURST ICON!', '#ffea00');
+      this.potionLiquidFill.setFillStyle(0xffea00);
+      this.showPopupBanner(ThemeConfig.screen.width / 2, this.cannonY - 68, '🧪 POTION FULL! TAP FLASK FOR 2.2X BURST!', '#ffea00');
     } else {
-      this.missionText.setText(`🎯\n${this.missionProgressHits}/${this.missionTargetHits}`);
+      this.missionText.setText(`🧪\n${this.missionProgressHits}/${this.missionTargetHits}`);
     }
   }
 
@@ -548,9 +564,9 @@ export class BattleScene extends Phaser.Scene {
     const rawBlocks = WaveSpawner.spawnWaveBlocks(this.wave, this.arenaBounds.top + 10, ThemeConfig.screen.width);
     this.updateHud();
 
+    // Cinematic Boss Warning Cutscene Banner on Every 10th Stage!
     if (WaveSpawner.isBossWave(this.wave)) {
-      this.cameras.main.shake(320, 0.012);
-      this.showPopupBanner(ThemeConfig.screen.width / 2, this.arenaBounds.top + 36, '⚠️ BOSS: TITAN CRYSTAL SENTINEL!', '#ff007f');
+      this.showBossWarningCutscene();
     }
 
     rawBlocks.forEach((item, idx) => {
@@ -586,7 +602,11 @@ export class BattleScene extends Phaser.Scene {
           shieldRing: null,
           hpBarFill: null,
           hpText: null,
-          lastElement: null
+          lastElement: null,
+          freezeSeconds: 0,
+          burnTicks: 0,
+          wallOriginX: item.data.x,
+          wallMoveDir: idx % 2 === 0 ? 1 : -1
         });
         return;
       }
@@ -624,7 +644,11 @@ export class BattleScene extends Phaser.Scene {
           shieldRing: null,
           hpBarFill: null,
           hpText: specialText,
-          lastElement: null
+          lastElement: null,
+          freezeSeconds: 0,
+          burnTicks: 0,
+          wallOriginX: item.data.x,
+          wallMoveDir: 0
         });
         return;
       }
@@ -641,7 +665,6 @@ export class BattleScene extends Phaser.Scene {
       const hpBarFill = this.add.rectangle(-barWidth / 2, barY, barWidth, 5, 0x00f5a0)
         .setOrigin(0, 0.5);
 
-      // Sleek 3D Bevelled Number Badge for Bubble HP!
       const pillBadge = this.add.image(0, barY - 11, 'hp_pill_badge').setScale(isBoss ? 1.25 : 0.92);
       const badgePrefix = item.trait === 'HEALER' ? '✨' : '';
       const hpText = this.add.text(0, barY - 11, `${badgePrefix}${item.data.hp}`, {
@@ -674,8 +697,45 @@ export class BattleScene extends Phaser.Scene {
         shieldRing,
         hpBarFill,
         hpText,
-        lastElement: null
+        lastElement: null,
+        freezeSeconds: 0,
+        burnTicks: 0,
+        wallOriginX: item.data.x,
+        wallMoveDir: 0
       });
+    });
+  }
+
+  private showBossWarningCutscene(): void {
+    const { width, height } = ThemeConfig.screen;
+    this.cameras.main.shake(450, 0.015);
+    SoundSynth.playUpgradeFanfare();
+
+    const bannerGroup = this.add.container(0, height / 2 - 60).setDepth(45);
+    const strip = this.add.rectangle(width / 2, 0, width, 78, 0x4a0018, 0.92)
+      .setStrokeStyle(3, 0xff1744);
+    const warnTxt = this.add.text(width / 2, -12, '⚠️ WARNING: TITAN BOSS APPROACHING! ⚠️', {
+      fontFamily: "'Orbitron', sans-serif",
+      fontSize: '13px',
+      color: '#ffea00',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 4
+    }).setOrigin(0.5);
+    const subTxt = this.add.text(width / 2, 14, `STAGE ${this.wave} SOVEREIGN GUARDIAN`, {
+      fontFamily: "'Orbitron', sans-serif",
+      fontSize: '11px',
+      color: '#ffffff',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+
+    bannerGroup.add([strip, warnTxt, subTxt]);
+    this.tweens.add({
+      targets: bannerGroup,
+      alpha: 0,
+      delay: 1600,
+      duration: 400,
+      onComplete: () => bannerGroup.destroy()
     });
   }
 
@@ -804,11 +864,11 @@ export class BattleScene extends Phaser.Scene {
 
     if (isOneTimeBurst) {
       this.cameras.main.shake(200, 0.009);
-      this.showPopupBanner(this.cannonX, this.cannonY - 56, '⚡ ONE-TIME HYPER BURST UNLEASHED! (2.2X DMG) ⚡', '#00f5a0');
+      this.showPopupBanner(this.cannonX, this.cannonY - 56, '🧪 ELIXIR OVERDRIVE UNLEASHED! (2.2X DMG) 🧪', '#00f5a0');
       this.hyperBurstState = 'USED';
       this.missionText.setText('✓\nUSED');
       this.missionText.setColor('#90a4ae');
-      this.missionRing.setStrokeStyle(2, 0x546e7a);
+      this.potionLiquidFill.height = 2;
     }
 
     queue.forEach((orbCfg, index) => {
@@ -860,13 +920,35 @@ export class BattleScene extends Phaser.Scene {
     if (!this.isForgeDrawerOpen) {
       this.stageElapsedSeconds += realDt;
       this.updateSpeedBonusTimerUI();
+      this.updateParachuteMysteryGift(realDt);
     }
 
     const meta = WaveSpawner.getWaveMetadata(this.wave);
     const dt = Math.min(delta / 1000, 0.025) * (this.isVolleyActive ? this.activeVolleyTimeScale : 1.0);
 
     for (const block of this.blocks) {
-      if (block.trait === 'WALL' || block.trait === 'BOMB' || block.trait === 'PRISM' || block.trait === 'PRISM_3X') {
+      // 1. Dynamic Sliding Bumper Walls (Horizontal walls oscillate left & right on Stage 3+!)
+      if (block.trait === 'WALL') {
+        if (this.wave >= 3 && block.data.width > block.data.height && block.wallMoveDir !== 0) {
+          block.data.x += block.wallMoveDir * 38 * realDt;
+          if (Math.abs(block.data.x - block.wallOriginX) > 42) {
+            block.wallMoveDir *= -1;
+          }
+          block.container.x = block.data.x;
+        }
+        continue;
+      }
+
+      if (block.trait === 'BOMB' || block.trait === 'PRISM' || block.trait === 'PRISM_3X') {
+        continue;
+      }
+
+      // 2. Ice Freeze Status Effect: Pauses crystal descent while frozen!
+      if (block.freezeSeconds > 0) {
+        block.freezeSeconds = Math.max(0, block.freezeSeconds - realDt);
+        if (block.freezeSeconds <= 0 && block.sprite instanceof Phaser.GameObjects.Image) {
+          block.sprite.clearTint();
+        }
         continue;
       }
 
@@ -912,7 +994,23 @@ export class BattleScene extends Phaser.Scene {
 
       if (orb.portalCooldown > 0) orb.portalCooldown -= realDt;
 
-      // MULTI-TUNNEL WORMHOLE TELEPORT CHECK: Checks all Entry Tunnels and teleports to a random Exit Tunnel!
+      // Check collision with Floating Parachute Mystery Gift Box!
+      if (this.parachuteSprite) {
+        const distGift = Phaser.Math.Distance.Between(orb.x, orb.y, this.parachuteSprite.x, this.parachuteSprite.y);
+        if (distGift <= 32) {
+          const gx = this.parachuteSprite.x;
+          const gy = this.parachuteSprite.y;
+          this.parachuteSprite.destroy();
+          this.parachuteSprite = null;
+          this.saveData.coins += 100;
+          SaveSystem.save(this.saveData);
+          this.updateHud();
+          SoundSynth.playUpgradeFanfare();
+          this.spawnShatterParticles(gx, gy, 0xffea00, 18);
+          this.showPopupBanner(gx, gy - 18, '🎁 PARACHUTE LOOT! +100 GOLD! 🎁', '#ffea00');
+        }
+      }
+
       if (orb.portalCooldown <= 0 && this.exitPortals.length > 0) {
         for (const entryPt of this.entryPortals) {
           const distToEntry = Phaser.Math.Distance.Between(orb.x, orb.y, entryPt.x, entryPt.y);
@@ -972,6 +1070,30 @@ export class BattleScene extends Phaser.Scene {
     }
   }
 
+  /**
+   * Spawns & drifts a Golden Parachute Mystery Gift across the arena sky!
+   */
+  private updateParachuteMysteryGift(dt: number): void {
+    if (!this.parachuteSprite) {
+      this.nextParachuteSpawnTimer -= dt;
+      if (this.nextParachuteSpawnTimer <= 0) {
+        this.nextParachuteSpawnTimer = 15.0;
+        this.parachuteVx = Math.random() < 0.5 ? 54 : -54;
+        const startX = this.parachuteVx > 0 ? 24 : ThemeConfig.screen.width - 24;
+        this.parachuteSprite = this.add.image(startX, 195, 'parachute_gift').setScale(0.86);
+      }
+      return;
+    }
+
+    this.parachuteSprite.x += this.parachuteVx * dt;
+    this.parachuteSprite.y += Math.sin(this.stageElapsedSeconds * 4) * 0.35;
+
+    if (this.parachuteSprite.x < 18 || this.parachuteSprite.x > ThemeConfig.screen.width - 18) {
+      this.parachuteSprite.destroy();
+      this.parachuteSprite = null;
+    }
+  }
+
   private checkComboStreakAnnouncement(combo: number): void {
     const cx = ThemeConfig.screen.width / 2;
     if (combo === 12) {
@@ -1010,7 +1132,6 @@ export class BattleScene extends Phaser.Scene {
       return;
     }
 
-    // 2X OR 3X MULTIBALL SPLIT-PRISM ('PRISM' / 'PRISM_3X')
     if (target.trait === 'PRISM' || target.trait === 'PRISM_3X') {
       const isTriple = target.trait === 'PRISM_3X';
       SoundSynth.playUpgradeFanfare();
@@ -1070,6 +1191,13 @@ export class BattleScene extends Phaser.Scene {
 
     this.advanceMissionProgress(1);
 
+    // Apply Elemental Status Effects: ICE freezes descent for 3s; FIRE applies Burn ticks!
+    if (orb.element === 'ICE') {
+      target.freezeSeconds = 3.0;
+    } else if (orb.element === 'FIRE') {
+      target.burnTicks = 2;
+    }
+
     let finalDamage = orb.damage;
     const coreLvl = this.saveData.grimoireLevels.empoweredCore || 1;
     const comboBoost = 1 + (coreLvl - 1) * 0.2;
@@ -1096,8 +1224,8 @@ export class BattleScene extends Phaser.Scene {
     }
 
     target.data.hp = Math.max(0, target.data.hp - finalDamage);
-    const badgePrefix = target.trait === 'HEALER' ? '✨' : '';
-    if (target.hpText) target.hpText.setText(`${badgePrefix}${target.data.hp}`);
+    const statusIcon = target.freezeSeconds > 0 ? '❄️' : target.burnTicks > 0 ? '🔥' : target.trait === 'HEALER' ? '✨' : '';
+    if (target.hpText) target.hpText.setText(`${statusIcon}${target.data.hp}`);
 
     const barMaxW = target.data.width > 100 ? 110 : 38;
     if (target.hpBarFill) {
@@ -1108,7 +1236,10 @@ export class BattleScene extends Phaser.Scene {
       const img = target.sprite;
       img.setTintFill(0xffffff);
       this.time.delayedCall(60, () => {
-        if (img && img.scene) img.clearTint();
+        if (img && img.scene) {
+          if (target.freezeSeconds > 0) img.setTint(0x80d8ff);
+          else img.clearTint();
+        }
       });
     }
 
@@ -1171,6 +1302,23 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private onVolleyComplete(): void {
+    // Process Fire Burn DoT ticks on surviving monsters!
+    const burnTargets = this.blocks.filter((b) => b.burnTicks > 0 && b.data.hp > 0);
+    for (const bt of burnTargets) {
+      bt.burnTicks--;
+      const burnDmg = Math.max(8, Math.round(bt.data.maxHp * 0.1));
+      bt.data.hp = Math.max(0, bt.data.hp - burnDmg);
+      if (bt.hpText) bt.hpText.setText(`🔥${bt.data.hp}`);
+      const barMaxW = bt.data.width > 100 ? 110 : 38;
+      if (bt.hpBarFill) {
+        bt.hpBarFill.width = Math.max(0, (bt.data.hp / nbMaxHp(bt)) * barMaxW);
+      }
+      this.showPopupBanner(bt.data.x, bt.data.y - 16, `🔥 BURN -${burnDmg}`, '#ff6d00');
+      if (bt.data.hp <= 0) {
+        this.destroyMonsterBlock(bt);
+      }
+    }
+
     const remainingTargets = this.blocks.filter(
       (b) => b.trait !== 'WALL' && b.trait !== 'BOMB' && b.trait !== 'PRISM' && b.trait !== 'PRISM_3X'
     );
@@ -1223,7 +1371,7 @@ export class BattleScene extends Phaser.Scene {
       this.showPopupBanner(healers[0].data.x, healers[0].data.y - 20, '✨ CRYSTAL REGEN +15%!', '#00f5a0');
     }
 
-    this.statusHintText.setText('HIT 💎 2X/3X PRISMS & 🌀 TUNNELS • AVOID ☠️ TRAP BOMBS');
+    this.statusHintText.setText('❄️ ICE FREEZES • 🔥 FIRE BURNS • SHOOT 🎁 PARACHUTES!');
     this.statusHintText.setVisible(true);
   }
 
